@@ -60,3 +60,21 @@ def escribir_chunk(ruta_archivo, indice_chunk, datos, tamano_chunk):
 def verificar_hash_chunk(datos, hash_esperado):
     hash_calculado = hashlib.sha256(datos).hexdigest()
     return hash_calculado == hash_esperado
+
+
+def marcar_chunk_completado(estado, indice_chunk):
+    if indice_chunk not in estado["chunks_completados"]:
+        estado["chunks_completados"].append(indice_chunk)
+        estado["porcentaje"] = calcular_porcentaje(estado)
+        guardar_estado_descarga(estado)
+
+        
+def calcular_porcentaje(estado):
+    completados = len(estado["chunks_completados"])
+    total = estado["total_chunks"]
+    return int((completados / total) * 100)
+
+
+def guardar_estado_descarga(estado):
+    with open("estado_descarga.json", "w") as archivo:
+        json.dump(estado, archivo, indent=4)
