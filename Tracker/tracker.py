@@ -61,3 +61,7 @@ def mostrar_estado_tracker():
         for archivo in info["archivos"]:
             print(f"  Archivo: {archivo['id']} | {archivo['porcentaje']}%")
     print("==========================\n")
+
+
+if __name__ == "__main__":
+    iniciar_tracker(5000)
