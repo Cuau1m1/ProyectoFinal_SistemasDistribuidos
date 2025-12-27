@@ -43,6 +43,9 @@ def iniciar_tracker(puerto):
     servidor.bind(("0.0.0.0", puerto))
     servidor.listen()
 
+    print(f"Tracker iniciado en puerto {puerto}")
+    print("Esperando nodos...\n")
+
     while True:
         conexion, _ = servidor.accept()
         hilo = threading.Thread(target=manejar_nodo, args=(conexion,))
