@@ -4,10 +4,13 @@ import json
 import threading
 
 nodos = {}
-
 def manejar_nodo(conexion):
-    datos = json.loads(conexion.recv(4096).decode())
+    datos_raw = conexion.recv(4096)
+    if not datos_raw:
+        conexion.close()
+        return
 
+    datos = json.loads(datos_raw.decode())
     tipo = datos["tipo"]
     info = datos["datos"]
 
@@ -36,6 +39,8 @@ def manejar_nodo(conexion):
                     archivo["porcentaje"] = info["porcentaje"]
 
     conexion.close()
+    mostrar_estado_tracker()
+
 
 
 def iniciar_tracker(puerto):
