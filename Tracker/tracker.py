@@ -47,3 +47,14 @@ def iniciar_tracker(puerto):
         conexion, _ = servidor.accept()
         hilo = threading.Thread(target=manejar_nodo, args=(conexion,))
         hilo.start()
+
+
+
+#visual 
+def mostrar_estado_tracker():
+    print("\n=== ESTADO DEL TRACKER ===")
+    for nodo_id, info in nodos.items():
+        print(f"Nodo: {nodo_id} | {info['ip']}:{info['puerto']}")
+        for archivo in info["archivos"]:
+            print(f"  Archivo: {archivo['id']} | {archivo['porcentaje']}%")
+    print("==========================\n")
