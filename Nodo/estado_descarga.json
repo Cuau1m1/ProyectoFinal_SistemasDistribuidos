@@ -1,11 +1,4 @@
-//estructura 
+
 
 {
-  "id": "hash_del_archivo",
-  "nombre": "video.mp4",
-  "tamano_total": 52428800,
-  "tamano_chunk": 1048576,
-  "total_chunks": 50,
-  "chunks_completados": [0, 1, 2, 5, 7],
-  "porcentaje": 14
 }

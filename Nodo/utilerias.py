@@ -5,6 +5,9 @@ import os
 import json
 import hashlib
 
+
+# Torrent
+
 def generar_torrent(ruta_archivo, tamano_chunk, tracker_ip, tracker_puerto):
     nombre = os.path.basename(ruta_archivo)
     tamano_total = os.path.getsize(ruta_archivo)
@@ -41,7 +44,7 @@ def generar_torrent(ruta_archivo, tamano_chunk, tracker_ip, tracker_puerto):
     return ruta_torrent
 
 
-# -> Lectura y escritura de chunks
+# Chunks
 
 def leer_chunk(ruta_archivo, indice_chunk, tamano_chunk):
     with open(ruta_archivo, "rb") as archivo:
@@ -62,20 +65,7 @@ def verificar_hash_chunk(datos, hash_esperado):
     return hash_calculado == hash_esperado
 
 
-def marcar_chunk_completado(estado, indice_chunk):
-    if indice_chunk not in estado["chunks_completados"]:
-        estado["chunks_completados"].append(indice_chunk)
-        estado["porcentaje"] = calcular_porcentaje(estado)
-        guardar_estado_descarga(estado)
-
-
-def calcular_porcentaje(estado):
-    completados = len(estado["chunks_completados"])
-    total = estado["total_chunks"]
-    return int((completados / total) * 100)
-
-
-####
+#Estado
 
 RUTA_ESTADO = "estado_descarga.json"
 
@@ -93,21 +83,30 @@ def crear_estado_descarga(torrent):
     guardar_estado_descarga(estado)
     return estado
 
-
 def cargar_estado_descarga():
     if not os.path.exists(RUTA_ESTADO):
         return None
     with open(RUTA_ESTADO, "r") as archivo:
         return json.load(archivo)
 
-
 def guardar_estado_descarga(estado):
     with open(RUTA_ESTADO, "w") as archivo:
         json.dump(estado, archivo, indent=4)
 
+def marcar_chunk_completado(estado, indice_chunk):
+    if indice_chunk not in estado["chunks_completados"]:
+        estado["chunks_completados"].append(indice_chunk)
+        estado["porcentaje"] = calcular_porcentaje(estado)
+        guardar_estado_descarga(estado)
 
 def obtener_chunks_faltantes(estado):
     return [
         i for i in range(estado["total_chunks"])
         if i not in estado["chunks_completados"]
     ]
+
+def calcular_porcentaje(estado):
+    completados = len(estado["chunks_completados"])
+    total = estado["total_chunks"]
+    return int((completados / total) * 100)
+

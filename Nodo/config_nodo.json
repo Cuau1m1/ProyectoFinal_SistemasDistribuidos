@@ -1,0 +1,7 @@
+{
+    "id_nodo": "nodo1",
+    "ip_publica": "IP_PUBLICA_DE_ESTA_INSTANCIA",
+    "puerto": 6000,
+    "tracker_ip": "IP_PUBLICA_TRACKER",
+    "tracker_puerto": 5000
+}
