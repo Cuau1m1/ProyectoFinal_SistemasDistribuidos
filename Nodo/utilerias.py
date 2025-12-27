@@ -1,3 +1,6 @@
+# utilerias.py concentra las funciones de manejo de archivos, fragmentacion e integridad, pero se
+#implementan como utiladades independientes para facilitar concurrencia y tolerancia a fallos 
+
 import os
 import json
 import hashlib
@@ -36,3 +39,24 @@ def generar_torrent(ruta_archivo, tamano_chunk, tracker_ip, tracker_puerto):
         json.dump(torrent, archivo_torrent, indent=4)
 
     return ruta_torrent
+
+
+# -> Lectura y escritura de chunks
+
+def leer_chunk(ruta_archivo, indice_chunk, tamano_chunk):
+    with open(ruta_archivo, "rb") as archivo:
+        archivo.seek(indice_chunk * tamano_chunk)
+        return archivo.read(tamano_chunk)
+
+
+def escribir_chunk(ruta_archivo, indice_chunk, datos, tamano_chunk):
+    os.makedirs(os.path.dirname(ruta_archivo), exist_ok=True)
+
+    with open(ruta_archivo, "r+b" if os.path.exists(ruta_archivo) else "wb") as archivo:
+        archivo.seek(indice_chunk * tamano_chunk)
+        archivo.write(datos)
+
+
+def verificar_hash_chunk(datos, hash_esperado):
+    hash_calculado = hashlib.sha256(datos).hexdigest()
+    return hash_calculado == hash_esperado
