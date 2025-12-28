@@ -1,6 +1,8 @@
 import socket
 import json
 import threading
+import os
+
 
 from utilerias import (
     escribir_chunk,
@@ -145,3 +147,44 @@ def mostrar_estado_nodo(estado):
         print("Rol: LEECHER")
 
     print("-----------------------\n")
+
+if __name__ == "__main__":
+    with open("config_nodo.json", "r") as f:
+        config = json.load(f)
+
+    tracker_ip = config["tracker_ip"]
+    tracker_puerto = config["tracker_puerto"]
+    id_nodo = config["id_nodo"]
+    ip = config["ip_publica"]
+    puerto = config["puerto"]
+
+    torrent_path = "../Archivos/torrents"
+    archivos = os.listdir(torrent_path)
+    if not archivos:
+        print("No hay torrents disponibles")
+        exit(0)
+
+    with open(f"{torrent_path}/{archivos[0]}", "r") as f:
+        torrent = json.load(f)
+
+    estado = cargar_estado_descarga()
+    if not estado:
+        estado = crear_estado_descarga(torrent)
+
+    info_nodo = {
+        "id_nodo": id_nodo,
+        "ip": ip,
+        "puerto": puerto,
+        "archivos": [
+            {
+                "id": torrent["id"],
+                "porcentaje": estado["porcentaje"]
+            }
+        ]
+    }
+
+    registrar_nodo(tracker_ip, tracker_puerto, info_nodo)
+
+    print("Nodo registrado en tracker")
+
+    gestionar_descarga(torrent, tracker_ip, tracker_puerto, id_nodo)
