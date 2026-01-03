@@ -49,6 +49,51 @@ def actualizar_progreso(tracker_ip, tracker_puerto, id_nodo, id_archivo, porcent
     }
     enviar_mensaje_tracker(tracker_ip, tracker_puerto, mensaje)
 
+#----
+def menu_principal():
+    print("\n=== MENU PEER ===")
+    print("1. Agregar torrent")
+    print("2. Ver progreso de descargas")
+    print("3. Salir")
+    return input("Opción: ")
+
+
+def seleccionar_torrent():
+    ruta = "../Archivos/torrents"
+    torrents = os.listdir(ruta)
+
+    if not torrents:
+        print("No hay torrents disponibles")
+        return None
+
+    print("Escoge un archivo de la lista:")
+    for t in torrents:
+        print(f"- {t}")
+
+    nombre = input("Archivo: ")
+    ruta_torrent = f"{ruta}/{nombre}"
+
+    if not os.path.exists(ruta_torrent):
+        print("Torrent no encontrado")
+        return None
+
+    with open(ruta_torrent, "r") as f:
+        return json.load(f)
+
+
+def ver_progreso(estado):
+    if not estado:
+        print("No hay descargas activas")
+        return
+
+    print("\n--- PROGRESO ---")
+    print(f"Archivo: {estado['nombre']}")
+    print(f"Progreso: {estado['porcentaje']}%")
+    print(f"Chunks: {len(estado['chunks_completados'])}/{estado['total_chunks']}")
+
+
+
+
 
 # ---------------- NODO - NODO ----------------
 
@@ -158,33 +203,43 @@ if __name__ == "__main__":
     ip = config["ip_publica"]
     puerto = config["puerto"]
 
-    torrent_path = "../Archivos/torrents"
-    archivos = os.listdir(torrent_path)
-    if not archivos:
-        print("No hay torrents disponibles")
-        exit(0)
+    estado = None
 
-    with open(f"{torrent_path}/{archivos[0]}", "r") as f:
-        torrent = json.load(f)
+    while True:
+        opcion = menu_principal()
 
-    estado = cargar_estado_descarga()
-    if not estado:
-        estado = crear_estado_descarga(torrent)
+        if opcion == "1":
+            torrent = seleccionar_torrent()
+            if not torrent:
+                continue
 
-    info_nodo = {
-        "id_nodo": id_nodo,
-        "ip": ip,
-        "puerto": puerto,
-        "archivos": [
-            {
-                "id": torrent["id"],
-                "porcentaje": estado["porcentaje"]
+            estado = cargar_estado_descarga()
+            if not estado:
+                estado = crear_estado_descarga(torrent)
+
+            info_nodo = {
+                "id_nodo": id_nodo,
+                "ip": ip,
+                "puerto": puerto,
+                "archivos": [
+                    {
+                        "id": torrent["id"],
+                        "porcentaje": estado["porcentaje"]
+                    }
+                ]
             }
-        ]
-    }
 
-    registrar_nodo(tracker_ip, tracker_puerto, info_nodo)
+            registrar_nodo(tracker_ip, tracker_puerto, info_nodo)
+            print("Torrent agregado y nodo registrado en tracker")
 
-    print("Nodo registrado en tracker")
+            gestionar_descarga(torrent, tracker_ip, tracker_puerto, id_nodo)
 
-    gestionar_descarga(torrent, tracker_ip, tracker_puerto, id_nodo)
+        elif opcion == "2":
+            ver_progreso(estado)
+
+        elif opcion == "3":
+            print("Saliendo...")
+            break
+
+        else:
+            print("Opción no válida")
