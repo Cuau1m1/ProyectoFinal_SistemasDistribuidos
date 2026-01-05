@@ -77,6 +77,7 @@ def manejar_nodo(conexion):
 
 def iniciar_tracker(puerto):
     servidor = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    servidor.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     servidor.bind(("0.0.0.0", puerto))
     servidor.listen()
     print(f"Tracker iniciado en puerto {puerto}")
