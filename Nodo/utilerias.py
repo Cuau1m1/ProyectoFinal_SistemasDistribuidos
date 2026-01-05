@@ -50,11 +50,14 @@ def generar_torrent(ruta_archivo, tamano_chunk, tracker_ip, tracker_puerto):
 
 # Chunks
 
-def leer_chunk(ruta_archivo, indice_chunk, tamano_chunk):
-    with open(ruta_archivo, "rb") as archivo:
-        archivo.seek(indice_chunk * tamano_chunk)
-        datos = archivo.read(tamano_chunk)
-return datos if datos else b""
+def leer_chunk(ruta_archivo, indice, tamanio_chunk):
+    try:
+        with open(ruta_archivo, "rb") as f:
+            f.seek(indice * tamanio_chunk)
+            datos = f.read(tamanio_chunk)
+            return datos if datos else b""
+    except FileNotFoundError:
+        return b""
 
 
 
