@@ -192,6 +192,8 @@ def solicitar_chunk(ip, puerto, nombre_archivo, indice, tamano_chunk, hash_esper
         print(f"RECHAZADO: El nodo {ip} rechazó la conexión (¿Puerto cerrado?).")
     except Exception as e:
         print(f" Error en chunk {indice}: {e}")
+
+
 def gestionar_descarga(torrent, tracker_ip, tracker_puerto, id_nodo):
     estado = cargar_estado_descarga()
     if not estado:
@@ -203,18 +205,25 @@ def gestionar_descarga(torrent, tracker_ip, tracker_puerto, id_nodo):
         chunks_faltantes = obtener_chunks_faltantes(estado)
         peers = consultar_peers(tracker_ip, tracker_puerto, torrent["id"])
 
+        # --- FIX CRITICO: FILTRO ANTI-CANIBALISMO ---
+        # Filtramos para que NO aparezca mi propio ID en la lista
+        if peers:
+            peers = [p for p in peers if p.get("id_nodo") != id_nodo]
+        # --------------------------------------------
+
         if not peers:
-            # Si no hay peers, esperamos un poco
             print("Esperando peers...")
             time.sleep(3)
             continue
 
         hilos = []
-        
+
         # Limitamos a chunks faltantes
         for i, indice in enumerate(chunks_faltantes):
-            if i >= MAX_DESCARGAS_CONCURRENTES: break # Solo lanzamos N hilos a la vez
+            if i >= MAX_DESCARGAS_CONCURRENTES: 
+                break # Solo lanzamos N hilos a la vez
 
+            # Round Robin para elegir peer
             peer = peers[indice % len(peers)]
             hash_esperado = torrent["hash_chunks"][indice]
 
