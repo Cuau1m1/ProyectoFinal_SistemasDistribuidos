@@ -143,9 +143,16 @@ def descargar_torrent_tracker(tracker_ip, tracker_puerto, nombre_archivo):
 
 def solicitar_chunk(ip, puerto, nombre_archivo, indice, tamano_chunk, hash_esperado, estado):
     try:
+        # --- DEBUG: Ver a quién intentamos conectar ---
+        print(f"   --> Intentando conectar a {ip}:{puerto} para chunk {indice}...")
+        
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(15) # Tiempo generoso
+        
+        # Si en 3 segundos no conecta, cancela y lanza error (evita el congelamiento)
+        s.settimeout(3) 
+        
         s.connect((ip, puerto))
+        print(f"   --> ¡Conexión establecida! Pidiendo datos...")
 
         solicitud = {
             "tipo": "GET_CHUNK",
@@ -157,19 +164,17 @@ def solicitar_chunk(ip, puerto, nombre_archivo, indice, tamano_chunk, hash_esper
         }
         s.send(json.dumps(solicitud).encode())
 
-        # --- LECTURA BLINDADA ---
-        # 1. Leer exactamente 10 bytes para saber el tamaño del JSON
+        # 1. Leer Header (10 bytes)
         header_len = recibir_exacto(s, 10)
         tamano_json = int(header_len.decode())
         
-        # 2. Leer exactamente el JSON
+        # 2. Leer JSON
         json_bytes = recibir_exacto(s, tamano_json)
         encabezado = json.loads(json_bytes.decode())
         
-        # 3. Leer exactamente el video
+        # 3. Leer Video
         tamano_video = encabezado["tamano_datos"]
         datos = recibir_exacto(s, tamano_video)
-        # ------------------------
 
         s.close()
 
@@ -179,12 +184,14 @@ def solicitar_chunk(ip, puerto, nombre_archivo, indice, tamano_chunk, hash_esper
             marcar_chunk_completado(estado, indice)
             mostrar_estado_nodo(estado)
         else:
-            print(f"⚠️ Hash incorrecto en chunk {indice} (Reintentando...)")
+            print(f"⚠️ Hash incorrecto en chunk {indice}")
             
+    except socket.timeout:
+        print(f"TIMEOUT: El nodo {ip} tardó demasiado en responder.")
+    except ConnectionRefusedError:
+        print(f"RECHAZADO: El nodo {ip} rechazó la conexión (¿Puerto cerrado?).")
     except Exception as e:
-        # print(f"Fallo chunk {indice}: {e}") # Debug opcional
-        pass
-
+        print(f" Error en chunk {indice}: {e}")
 def gestionar_descarga(torrent, tracker_ip, tracker_puerto, id_nodo):
     estado = cargar_estado_descarga()
     if not estado:
