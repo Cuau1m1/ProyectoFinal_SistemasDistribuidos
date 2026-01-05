@@ -85,7 +85,6 @@ def obtener_lista_torrents(tracker_ip, tracker_puerto):
         return []
 
 def descargar_torrent_tracker(tracker_ip, tracker_puerto, nombre_archivo):
-    # --- MODO DEBUG ACTIVADO ---
     print(f"--- DEBUG: Pidiendo {nombre_archivo} al Tracker {tracker_ip} ---")
     mensaje = {
         "tipo": "DESCARGAR_TORRENT",
@@ -93,27 +92,44 @@ def descargar_torrent_tracker(tracker_ip, tracker_puerto, nombre_archivo):
     }
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(5) 
+        s.settimeout(10) # Damos buen tiempo
         s.connect((tracker_ip, tracker_puerto))
         s.send(json.dumps(mensaje).encode())
         
-        datos = s.recv(65536) 
-        s.close()
+        # --- CAMBIO IMPORTANTE: RECIBIR EN BUCLE ---
+        datos_totales = b""
+        while True:
+            try:
+                paquete = s.recv(4096)
+                if not paquete: break # Si el servidor cierra, terminamos
+                datos_totales += paquete
+            except socket.timeout:
+                break
         
-        if not datos:
-            print("--- DEBUG: Tracker cerró sin datos ---")
+        s.close()
+        # -------------------------------------------
+        
+        if not datos_totales:
+            print("--- DEBUG: Tracker cerró sin mandar datos ---")
             return None
 
-        respuesta = json.loads(datos.decode())
+        print(f"--- DEBUG: Recibidos {len(datos_totales)} bytes ---")
+        
+        # Intentamos decodificar el JSON completo
+        respuesta = json.loads(datos_totales.decode())
+        
         if respuesta["tipo"] == "ARCHIVO_TORRENT":
             return respuesta["datos"]
         else:
             print(f"--- DEBUG: Tracker error: {respuesta}")
+            
+    except json.JSONDecodeError as e:
+        print(f" ERROR JSON INCOMPLETO: {e}")
+        print(f"   Datos recibidos (parcial): {datos_totales[:100]}...") # Muestra el inicio para ver si hay basura
     except Exception as e:
-        print(f"ERROR RED TRACKER: {e}")
+        print(f" ERROR DE RED: {e}")
         pass
     return None
-
 # ---------------- P2P CLIENTE ----------------
 
 def solicitar_chunk(ip, puerto, nombre_archivo, indice, tamano_chunk, hash_esperado, estado):
