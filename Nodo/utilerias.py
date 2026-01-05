@@ -61,12 +61,23 @@ def leer_chunk(ruta_archivo, indice, tamanio_chunk):
 
 
 def escribir_chunk(ruta_archivo, indice, datos, tamano_chunk):
-
+    # 1. Asegurar que la carpeta exista
+    directorio = os.path.dirname(ruta_archivo)
+    if directorio:
+        os.makedirs(directorio, exist_ok=True)
+    
+    # 2. Definir el modo de escritura (AQUÍ FALLABA ANTES)
+    if os.path.exists(ruta_archivo):
+        modo = "r+b"  
+    else:
+        modo = "wb"   # Escritura binaria nueva (si no existe)
+    
+    # 3. Escribir los datos
     with open(ruta_archivo, modo) as f:
         f.seek(indice * tamano_chunk)
         f.write(datos)
         f.flush()
-        os.fsync(f.fileno())
+        os.fsync(f.fileno()) # Forzar guardado en disco físico
 
 def verificar_hash_chunk(datos, hash_esperado):
     hash_calculado = hashlib.sha256(datos).hexdigest()
