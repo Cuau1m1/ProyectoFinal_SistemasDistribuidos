@@ -1,4 +1,5 @@
-from utilerias import generar_torrent
+from Nodo.utilerias import generar_torrent
+
 import os
 
 ruta_base = "../Archivos/completos"
@@ -17,8 +18,9 @@ ruta_archivo = f"{ruta_base}/{archivo_seleccionado}"
 generar_torrent(
     ruta_archivo,
     1024 * 1024,
-    "3.230.95.126",
+    "44.219.142.29",
     5000
 )
+
 
 print("Torrent creado para:", archivo_seleccionado)
