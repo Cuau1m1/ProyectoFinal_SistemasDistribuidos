@@ -2,7 +2,8 @@ from Nodo.utilerias import generar_torrent
 
 import os
 
-ruta_base = "../Archivos/completos"
+ruta_base = os.path.join("Archivos", "completos")
+
 
 archivos = os.listdir(ruta_base)
 
