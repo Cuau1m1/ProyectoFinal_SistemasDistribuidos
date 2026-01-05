@@ -19,3 +19,6 @@ permite:
 Verificar integridad
 Saber qué chunk falta
 Reanudar desde cualquier porcentaje
+
+
+
