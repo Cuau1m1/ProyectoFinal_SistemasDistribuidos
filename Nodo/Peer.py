@@ -75,12 +75,36 @@ def registrar_en_tracker(config, torrent, estado):
     registrar_nodo(config["tracker_ip"], config["tracker_puerto"], info_nodo)
     print(f"Nodo registrado: {config['id_nodo']} | {ip}:{config['puerto']} | {estado['porcentaje']}%")
 
+ruta_completo = f"../Archivos/completos/{torrent['nombre']}"
+ruta_parcial = f"../Archivos/parciales/{torrent['nombre']}"
+
+if os.path.exists(ruta_completo):
+    if not os.path.exists(ruta_parcial):
+        shutil.copy(ruta_completo, ruta_parcial)
+    estado = crear_estado_seeder(torrent)
+    print("Nodo iniciado como SEEDER")
+
 
 def ciclo_principal(config, torrent):
+    ruta_completo = f"../Archivos/completos/{torrent['nombre']}"
+    ruta_parcial = f"../Archivos/parciales/{torrent['nombre']}"
+
     estado = cargar_estado_descarga()
-    if not estado or estado.get("id") != torrent["id"]:
+
+    # --- CASO 1: SOY SEEDER ---
+    if os.path.exists(ruta_completo):
+        if not os.path.exists(ruta_parcial):
+            os.makedirs(os.path.dirname(ruta_parcial), exist_ok=True)
+            shutil.copy(ruta_completo, ruta_parcial)
+
+        estado = crear_estado_seeder(torrent)
+        print("Nodo iniciado como SEEDER")
+
+    # --- CASO 2: SOY LEECHER ---
+    elif not estado or estado.get("id") != torrent["id"]:
         estado = crear_estado_descarga(torrent)
         print("Iniciando nueva descarga...")
+
     else:
         print("Recuperando estado previo...")
 
@@ -88,17 +112,18 @@ def ciclo_principal(config, torrent):
 
     if estado["porcentaje"] < 100:
         print("Iniciando descarga...")
-        gestionar_descarga(torrent, config["tracker_ip"], config["tracker_puerto"], config["id_nodo"])
+        gestionar_descarga(
+            torrent,
+            config["tracker_ip"],
+            config["tracker_puerto"],
+            config["id_nodo"]
+        )
         print("Descarga completada. Modo SEEDER activo.")
     else:
         print("Archivo completo. Modo SEEDER activo.")
 
     while True:
-        try:
-            time.sleep(10)
-        except KeyboardInterrupt:
-            print("Apagando nodo...")
-            sys.exit(0)
+        time.sleep(10)
 
 
 if __name__ == "__main__":

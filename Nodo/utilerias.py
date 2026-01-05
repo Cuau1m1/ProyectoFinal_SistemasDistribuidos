@@ -119,3 +119,15 @@ def calcular_porcentaje(estado):
     total = estado["total_chunks"]
     return int((completados / total) * 100)
 
+def crear_estado_seeder(torrent):
+    estado = {
+        "id": torrent["id"],
+        "nombre": torrent["nombre"],
+        "tamano_total": torrent["tamano_total"],
+        "tamano_chunk": torrent["tamano_chunk"],
+        "total_chunks": torrent["total_chunks"],
+        "chunks_completados": list(range(torrent["total_chunks"])),
+        "porcentaje": 100
+    }
+    guardar_estado_descarga(estado)
+    return estado
