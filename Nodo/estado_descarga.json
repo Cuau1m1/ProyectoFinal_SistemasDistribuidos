@@ -1,4 +1,9 @@
-
-
 {
+    "id": "1c99474e66e2b71029047cbf37fcd42290bf798d33ecebece38fb41e036466ce",
+    "nombre": "Shrek.mp4",
+    "tamano_total": 123456789,
+    "tamano_chunk": 1048576,
+    "total_chunks": 120,
+    "chunks_completados": [0,1,2,3,4,5,6,7,8,9],
+    "porcentaje": 100
 }
