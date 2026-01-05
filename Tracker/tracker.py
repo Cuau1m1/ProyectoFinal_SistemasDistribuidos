@@ -30,9 +30,11 @@ def manejar_nodo(conexion):
                         and archivo["porcentaje"] >= 20
                     ):
                         peers.append({
-                            "ip": nodo["ip"],
-                            "puerto": nodo["puerto"]
+                             "ip": nodo["ip"],
+                             "puerto": nodo["puerto"],
+                             "nombre": archivo.get("nombre", "desconocido")
                         })
+
 
         respuesta = {
             "tipo": "RESPUESTA",

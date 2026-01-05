@@ -65,9 +65,11 @@ def registrar_en_tracker(config, torrent, estado):
         "ip": ip,
         "puerto": config["puerto"],
         "archivos": [{
-            "id": torrent["id"],
-            "porcentaje": estado["porcentaje"]
+             "id": torrent["id"],
+             "nombre": torrent["nombre"],
+             "porcentaje": estado["porcentaje"]
         }]
+
     }
 
     registrar_nodo(config["tracker_ip"], config["tracker_puerto"], info_nodo)
