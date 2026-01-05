@@ -8,7 +8,6 @@ def manejar_cliente(conexion):
     try:
         datos_raw = conexion.recv(4096)
         if not datos_raw:
-            conexion.close()
             return
             
         encabezado = json.loads(datos_raw.decode())
@@ -18,19 +17,15 @@ def manejar_cliente(conexion):
         tamano_chunk = datos["tamano_chunk"]
         nombre_archivo = datos["id_archivo"] 
         
-        # Rutas usando el NOMBRE del archivo
         ruta_parcial = f"../Archivos/parciales/{nombre_archivo}"
         ruta_completa = f"../Archivos/completos/{nombre_archivo}"
 
-        # Prioridad al completo
         if os.path.exists(ruta_completa):
             ruta = ruta_completa
         else:
             ruta = ruta_parcial
         
         if not os.path.exists(ruta):
-            # Este print ahora no deberia salir si el archivo existe
-            print(f" Servidor: No encuentro {nombre_archivo}") 
             conexion.close()
             return  
 
@@ -41,15 +36,16 @@ def manejar_cliente(conexion):
             "tamano_datos": len(chunk)
         }
 
-        conexion.send(json.dumps(respuesta).encode())
+        # Agregamos un salto de linea (b'\n') para separar el JSON del Video
+        mensaje_json = json.dumps(respuesta).encode() + b"\n"
+        conexion.send(mensaje_json)
         conexion.send(chunk)
+        # ---------------------------
         
     except Exception as e:
-        print(f"Error servidor: {e}")
         pass
     finally:
         conexion.close()
-
 def iniciar_servidor(puerto):
     servidor = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     servidor.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) 

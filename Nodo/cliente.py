@@ -133,36 +133,47 @@ def descargar_torrent_tracker(tracker_ip, tracker_puerto, nombre_archivo):
 # ---------------- P2P CLIENTE ----------------
 
 def solicitar_chunk(ip, puerto, nombre_archivo, indice, tamano_chunk, hash_esperado, estado):
-
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(10) 
+        s.settimeout(10)
         s.connect((ip, puerto))
 
         solicitud = {
             "tipo": "GET_CHUNK",
             "datos": {
-                "id_archivo": nombre_archivo, 
+                "id_archivo": nombre_archivo,
                 "indice_chunk": indice,
                 "tamano_chunk": tamano_chunk
             }
         }
-
         s.send(json.dumps(solicitud).encode())
 
-        # Recibir encabezado
-        buffer_head = s.recv(4096).decode()
-        if not buffer_head: return
+        buffer = b""
+        while b"\n" not in buffer:
+            temp = s.recv(1024)
+            if not temp: break
+            buffer += temp
         
-        encabezado = json.loads(buffer_head)
-        tamano = encabezado["tamano_datos"]
+        if b"\n" not in buffer:
+            s.close()
+            return
 
-        # Recibir datos binarios
-        datos = b""
-        while len(datos) < tamano:
+        # Cortamos exactamente donde está el salto de línea
+        partes = buffer.split(b"\n", 1)
+        header_json = partes[0]
+        datos_video_iniciales = partes[1] if len(partes) > 1 else b""
+        
+        # Ahora decodificamos SOLO el JSON (seguro)
+        encabezado = json.loads(header_json.decode())
+        tamano_total = encabezado["tamano_datos"]
+        
+        # Juntamos lo que sobró del video con el resto que falta
+        datos = datos_video_iniciales
+        while len(datos) < tamano_total:
             chunk = s.recv(4096)
             if not chunk: break
             datos += chunk
+        # -----------------------------------------------
 
         s.close()
 
@@ -172,11 +183,12 @@ def solicitar_chunk(ip, puerto, nombre_archivo, indice, tamano_chunk, hash_esper
             marcar_chunk_completado(estado, indice)
             mostrar_estado_nodo(estado)
         else:
-            print(f" Hash incorrecto en chunk {indice} de {ip}")
+            print(f" Hash incorrecto en chunk {indice} (Se borrará y reintentará luego)")
             
     except Exception as e:
-        print(f"Error descargando chunk {indice}: {e}") # Descomentar para ver errores P2P
+        # print(f"Error en chunk {indice}: {e}")
         pass
+
 
 def gestionar_descarga(torrent, tracker_ip, tracker_puerto, id_nodo):
     estado = cargar_estado_descarga()
