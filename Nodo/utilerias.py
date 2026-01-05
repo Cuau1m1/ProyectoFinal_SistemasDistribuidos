@@ -7,7 +7,6 @@ import hashlib
 
 
 # Torrent
-
 def generar_torrent(ruta_archivo, tamano_chunk, tracker_ip, tracker_puerto):
     nombre = os.path.basename(ruta_archivo)
     tamano_total = os.path.getsize(ruta_archivo)
@@ -35,8 +34,13 @@ def generar_torrent(ruta_archivo, tamano_chunk, tracker_ip, tracker_puerto):
         "tracker_puerto": tracker_puerto
     }
 
-    os.makedirs("../Archivos/torrents", exist_ok=True)
-    ruta_torrent = f"../Archivos/torrents/{nombre}.torrent.json"
+    ruta_torrents = os.path.join("Archivos", "torrents")
+    os.makedirs(ruta_torrents, exist_ok=True)
+
+    ruta_torrent = os.path.join(
+        ruta_torrents,
+        f"{nombre}.torrent.json"
+    )
 
     with open(ruta_torrent, "w") as archivo_torrent:
         json.dump(torrent, archivo_torrent, indent=4)
