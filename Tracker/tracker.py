@@ -23,34 +23,32 @@ def manejar_nodo(conexion):
     elif tipo == "CONSULTA":
         peers = []
         with lock_nodos:
-    for nodo in nodos.values():
-        for archivo in nodo["archivos"]:
-            if (
-                archivo["id"] == info["id_archivo"]
-                and archivo["porcentaje"] >= 20
-            ):
-                peers.append({
-                    "ip": nodo["ip"],
-                    "puerto": nodo["puerto"]
-                })
+            for nodo in nodos.values():
+                for archivo in nodo["archivos"]:
+                    if (
+                        archivo["id"] == info["id_archivo"]
+                        and archivo["porcentaje"] >= 20
+                    ):
+                        peers.append({
+                            "ip": nodo["ip"],
+                            "puerto": nodo["puerto"]
+                        })
 
         respuesta = {
             "tipo": "RESPUESTA",
-            "datos": { "peers": peers }
+            "datos": {"peers": peers}
         }
         conexion.send(json.dumps(respuesta).encode())
 
     elif tipo == "ACTUALIZAR":
-       with lock_nodos:
-    if info["id_nodo"] in nodos:
-        for archivo in nodos[info["id_nodo"]]["archivos"]:
-            if archivo["id"] == info["id_archivo"]:
-                archivo["porcentaje"] = info["porcentaje"]
-
+        with lock_nodos:
+            if info["id_nodo"] in nodos:
+                for archivo in nodos[info["id_nodo"]]["archivos"]:
+                    if archivo["id"] == info["id_archivo"]:
+                        archivo["porcentaje"] = info["porcentaje"]
 
     conexion.close()
     mostrar_estado_tracker()
-
 
 
 def iniciar_tracker(puerto):
