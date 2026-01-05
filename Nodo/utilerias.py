@@ -53,7 +53,9 @@ def generar_torrent(ruta_archivo, tamano_chunk, tracker_ip, tracker_puerto):
 def leer_chunk(ruta_archivo, indice_chunk, tamano_chunk):
     with open(ruta_archivo, "rb") as archivo:
         archivo.seek(indice_chunk * tamano_chunk)
-        return archivo.read(tamano_chunk)
+        datos = archivo.read(tamano_chunk)
+return datos if datos else b""
+
 
 
 def escribir_chunk(ruta_archivo, indice_chunk, datos, tamano_chunk):

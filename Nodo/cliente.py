@@ -112,7 +112,14 @@ def solicitar_chunk(ip, puerto, id_archivo, indice, tamano_chunk, hash_esperado,
 
     s.send(json.dumps(solicitud).encode())
 
-    encabezado = json.loads(s.recv(4096).decode())
+   data = s.recv(4096)
+if not data:
+    s.close()
+    return
+
+encabezado = json.loads(data.decode())
+
+
     tamano = encabezado["tamano_datos"]
 
     datos = b""
@@ -122,7 +129,7 @@ def solicitar_chunk(ip, puerto, id_archivo, indice, tamano_chunk, hash_esperado,
     s.close()
 
     if verificar_hash_chunk(datos, hash_esperado):
-        ruta = f"../Archivos/parciales/{estado['nombre']}"
+        ruta = f"../Archivos/parciales/{estado['id']}"
         escribir_chunk(ruta, indice, datos, tamano_chunk)
         marcar_chunk_completado(estado, indice)
         mostrar_estado_nodo(estado)
@@ -146,7 +153,9 @@ def gestionar_descarga(torrent, tracker_ip, tracker_puerto, id_nodo):
                 for h in hilos:
                     h.join()
                 hilos = []
-
+            if not peers:
+    time.sleep(2)
+    continue
             peer = peers[indice % len(peers)]
             hash_esperado = torrent["hash_chunks"][indice]
 

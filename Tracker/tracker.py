@@ -4,6 +4,8 @@ import json
 import threading
 
 nodos = {}
+
+lock_nodos = threading.lock()
 def manejar_nodo(conexion):
     datos_raw = conexion.recv(4096)
     if not datos_raw:
@@ -15,17 +17,23 @@ def manejar_nodo(conexion):
     info = datos["datos"]
 
     if tipo == "REGISTRO":
-        nodos[info["id_nodo"]] = info
+        with lock_nodos:
+            nodos[info["id_nodo"]] = info
 
     elif tipo == "CONSULTA":
         peers = []
-        for nodo in nodos.values():
-            for archivo in nodo["archivos"]:
-                if archivo["id"] == info["id_archivo"]:
-                    peers.append({
-                        "ip": nodo["ip"],
-                        "puerto": nodo["puerto"]
-                    })
+        with lock_nodos:
+    for nodo in nodos.values():
+        for archivo in nodo["archivos"]:
+            if (
+                archivo["id"] == info["id_archivo"]
+                and archivo["porcentaje"] >= 20
+            ):
+                peers.append({
+                    "ip": nodo["ip"],
+                    "puerto": nodo["puerto"]
+                })
+
         respuesta = {
             "tipo": "RESPUESTA",
             "datos": { "peers": peers }
@@ -33,10 +41,12 @@ def manejar_nodo(conexion):
         conexion.send(json.dumps(respuesta).encode())
 
     elif tipo == "ACTUALIZAR":
-        if info["id_nodo"] in nodos:
-            for archivo in nodos[info["id_nodo"]]["archivos"]:
-                if archivo["id"] == info["id_archivo"]:
-                    archivo["porcentaje"] = info["porcentaje"]
+       with lock_nodos:
+    if info["id_nodo"] in nodos:
+        for archivo in nodos[info["id_nodo"]]["archivos"]:
+            if archivo["id"] == info["id_archivo"]:
+                archivo["porcentaje"] = info["porcentaje"]
+
 
     conexion.close()
     mostrar_estado_tracker()
@@ -64,7 +74,9 @@ def mostrar_estado_tracker():
     for nodo_id, info in nodos.items():
         print(f"Nodo: {nodo_id} | {info['ip']}:{info['puerto']}")
         for archivo in info["archivos"]:
-            print(f"  Archivo: {archivo['id']} | {archivo['porcentaje']}%")
+            estado = "VISIBLE" if archivo["porcentaje"] >= 20 else "OCULTO"
+print(f"  Archivo: {archivo['id']} | {archivo['porcentaje']}% | {estado}")
+
     print("==========================\n")
 
 
