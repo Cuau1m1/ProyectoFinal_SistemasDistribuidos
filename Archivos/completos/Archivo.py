@@ -1,1 +1,0 @@
-# Carpeta para archivos completos en la instancia Tracker
