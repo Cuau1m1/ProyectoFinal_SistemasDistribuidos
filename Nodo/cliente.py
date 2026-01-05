@@ -94,9 +94,6 @@ def ver_progreso(estado):
 
 
 
-
-# ---------------- NODO - NODO ----------------
-
 def solicitar_chunk(ip, puerto, id_archivo, indice, tamano_chunk, hash_esperado, estado):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect((ip, puerto))
@@ -112,13 +109,18 @@ def solicitar_chunk(ip, puerto, id_archivo, indice, tamano_chunk, hash_esperado,
 
     s.send(json.dumps(solicitud).encode())
 
-   data = s.recv(4096)
-if not data:
-    s.close()
-    return
+    data = b""
+    while True:
+        parte = s.recv(4096)
+        if not parte:
+            break
+        data += parte
 
-encabezado = json.loads(data.decode())
+    if not data:
+        s.close()
+        return
 
+    encabezado = json.loads(data.decode())
 
     tamano = encabezado["tamano_datos"]
 
