@@ -60,14 +60,13 @@ def leer_chunk(ruta_archivo, indice, tamanio_chunk):
         return b""
 
 
+def escribir_chunk(ruta_archivo, indice, datos, tamano_chunk):
 
-def escribir_chunk(ruta_archivo, indice_chunk, datos, tamano_chunk):
-    os.makedirs(os.path.dirname(ruta_archivo), exist_ok=True)
-
-    with open(ruta_archivo, "r+b" if os.path.exists(ruta_archivo) else "wb") as archivo:
-        archivo.seek(indice_chunk * tamano_chunk)
-        archivo.write(datos)
-
+    with open(ruta_archivo, modo) as f:
+        f.seek(indice * tamano_chunk)
+        f.write(datos)
+        f.flush()
+        os.fsync(f.fileno())
 
 def verificar_hash_chunk(datos, hash_esperado):
     hash_calculado = hashlib.sha256(datos).hexdigest()
