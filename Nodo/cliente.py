@@ -200,7 +200,7 @@ if __name__ == "__main__":
     tracker_ip = config["tracker_ip"]
     tracker_puerto = config["tracker_puerto"]
     id_nodo = config["id_nodo"]
-    ip = config["ip_publica"]
+    ip = obtener_ip_publica()
     puerto = config["puerto"]
 
     estado = None
@@ -243,3 +243,14 @@ if __name__ == "__main__":
 
         else:
             print("Opción no válida")
+
+def obtener_ip_publica():
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except:
+        return "127.0.0.1"
+
