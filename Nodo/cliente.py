@@ -300,3 +300,46 @@ def descargar_torrent_tracker(tracker_ip, tracker_puerto, nombre_archivo):
     except:
         pass
     return None
+
+def publicar_torrent(tracker_ip, tracker_puerto, nombre_archivo, contenido_torrent):
+    mensaje = {
+        "tipo": "PUBLICAR_TORRENT",
+        "datos": {
+            "nombre": nombre_archivo,
+            "contenido": contenido_torrent
+        }
+    }
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((tracker_ip, tracker_puerto))
+        s.send(json.dumps(mensaje).encode())
+        s.close()
+    except:
+        pass
+
+def obtener_lista_torrents(tracker_ip, tracker_puerto):
+    mensaje = {"tipo": "LISTAR_TORRENTS", "datos": {}}
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((tracker_ip, tracker_puerto))
+        s.send(json.dumps(mensaje).encode())
+        datos = s.recv(16384) # Buffer grande
+        s.close()
+        return json.loads(datos.decode())["datos"]
+    except:
+        return []
+
+def descargar_torrent_tracker(tracker_ip, tracker_puerto, nombre_archivo):
+    mensaje = {"tipo": "DESCARGAR_TORRENT", "datos": {"nombre": nombre_archivo}}
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((tracker_ip, tracker_puerto))
+        s.send(json.dumps(mensaje).encode())
+        datos = s.recv(16384)
+        s.close()
+        resp = json.loads(datos.decode())
+        if resp["tipo"] == "ARCHIVO_TORRENT":
+            return resp["datos"]
+    except:
+        pass
+    return None

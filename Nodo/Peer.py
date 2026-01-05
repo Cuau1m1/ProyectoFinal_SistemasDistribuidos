@@ -27,57 +27,55 @@ def cargar_config():
 
 def seleccionar_torrent(config):
     ruta_torrents = "../Archivos/torrents"
-    os.makedirs(ruta_torrents, exist_ok=True)
+    if not os.path.exists(ruta_torrents):
+        os.makedirs(ruta_torrents, exist_ok=True)
 
     torrents_locales = [x for x in os.listdir(ruta_torrents) if x.endswith(".json")]
-    
-    if torrents_locales:
-        print("\n--- Torrents Locales ---")
-        for i, nombre in enumerate(torrents_locales):
-            print(f"{i+1}. {nombre}")
-        print(f"{len(torrents_locales)+1}. Buscar en Tracker (Nube)")
-    else:
-        print("\nNo hay torrents locales. Buscando en Tracker...")
 
-    opcion = -1
+    print("\n--- SELECCION DE TORRENT ---")
+    print("1. Buscar en Tracker (Nube)")
+    for i, nombre in enumerate(torrents_locales):
+        print(f"{i+2}. Local: {nombre}")
+
     try:
-        opcion = int(input("Selecciona: ")) - 1
+        opcion_str = input("Elige: ")
+        opcion = int(opcion_str)
     except:
         return None
 
-    # Si eligió un local
-    if 0 <= opcion < len(torrents_locales):
-        ruta = f"{ruta_torrents}/{torrents_locales[opcion]}"
-        with open(ruta, "r") as f:
-            return json.load(f)
-    
-    # Si eligió buscar en Tracker o no había locales
-    print("Consultando Tracker...")
-    lista_nube = obtener_lista_torrents(config["tracker_ip"], config["tracker_puerto"])
-    
-    if not lista_nube:
-        print("El Tracker no tiene torrents registrados.")
-        return None
-
-    print("\n--- Torrents en Tracker ---")
-    for i, nombre in enumerate(lista_nube):
-        print(f"{i+1}. {nombre}")
-    
-    try:
-        idx = int(input("Descargar cual: ")) - 1
-        nombre_elegido = lista_nube[idx]
-        datos_torrent = descargar_torrent_tracker(config["tracker_ip"], config["tracker_puerto"], nombre_elegido)
+    if opcion == 1:
+        print("Consultando Tracker...")
+        lista = obtener_lista_torrents(config["tracker_ip"], config["tracker_puerto"])
         
-        if datos_torrent:
-            ruta_guardado = f"{ruta_torrents}/{nombre_elegido}.torrent.json"
-            with open(ruta_guardado, "w") as f:
-                json.dump(datos_torrent, f, indent=4)
-            return datos_torrent
-    except:
-        pass
-    
-    return None
+        if not lista:
+            print("El Tracker no tiene archivos registrados.")
+            return None
 
+        for i, nombre in enumerate(lista):
+            print(f"{i+1}. {nombre}")
+        
+        try:
+            idx = int(input("Descargar cual: ")) - 1
+            if 0 <= idx < len(lista):
+                nombre = lista[idx]
+                datos = descargar_torrent_tracker(config["tracker_ip"], config["tracker_puerto"], nombre)
+                
+                if datos:
+                    ruta_guardada = f"{ruta_torrents}/{nombre}.torrent.json"
+                    with open(ruta_guardada, "w") as f:
+                        json.dump(datos, f, indent=4)
+                    return datos
+        except:
+            pass
+        return None
+
+    else:
+        idx = opcion - 2
+        if 0 <= idx < len(torrents_locales):
+            ruta = f"{ruta_torrents}/{torrents_locales[idx]}"
+            with open(ruta, "r") as f:
+                return json.load(f)
+        return None
 def registrar_en_tracker(config, torrent, estado):
     ip = obtener_ip_local_salida()
     info_nodo = {
@@ -94,27 +92,31 @@ def registrar_en_tracker(config, torrent, estado):
     print(f"Status: {estado['porcentaje']}%")
 
 def ciclo_principal(config, torrent):
+
     estado = cargar_estado_descarga()
     ruta_completo = f"../Archivos/completos/{torrent['nombre']}"
-    
+
     if not estado or estado.get("id") != torrent["id"]:
         if os.path.exists(ruta_completo):
             estado = crear_estado_descarga(torrent)
             estado["porcentaje"] = 100
             print("Archivo completo detectado. Soy SEEDER.")
-            
-            # AUTOMATIZACION: Subir torrent al tracker
-            ruta_t = f"../Archivos/torrents/{torrent['nombre']}.torrent.json"
-            if os.path.exists(ruta_t):
-                with open(ruta_t, "r") as f:
-                    contenido = json.load(f)
-                publicar_torrent(config["tracker_ip"], config["tracker_puerto"], torrent["nombre"], contenido)
-                print("Torrent publicado en Tracker autom.")
         else:
             estado = crear_estado_descarga(torrent)
             print("Iniciando nueva descarga...")
     else:
         print("Recuperando estado previo...")
+
+    if estado["porcentaje"] == 100:
+        ruta_t = f"../Archivos/torrents/{torrent['nombre']}.torrent.json"
+        if os.path.exists(ruta_t):
+            try:
+                with open(ruta_t, "r") as f:
+                    contenido = json.load(f)
+                print(f"Publicando {torrent['nombre']} en Tracker...")
+                publicar_torrent(config["tracker_ip"], config["tracker_puerto"], torrent["nombre"], contenido)
+            except:
+                pass
 
     registrar_en_tracker(config, torrent, estado)
 
@@ -122,7 +124,7 @@ def ciclo_principal(config, torrent):
         gestionar_descarga(torrent, config["tracker_ip"], config["tracker_puerto"], config["id_nodo"])
         print("Descarga finalizada.")
         registrar_en_tracker(config, torrent, estado)
-    
+
     while True:
         try:
             time.sleep(10)
@@ -132,11 +134,17 @@ def ciclo_principal(config, torrent):
 if __name__ == "__main__":
     config = cargar_config()
     torrent = seleccionar_torrent(config)
+    
     if not torrent:
         sys.exit(1)
 
-    print(f"\n=== NODO: {config['id_nodo']} ===")
-    hilo_servidor = threading.Thread(target=iniciar_servidor, args=(config["puerto"],), daemon=True)
+    print(f"\n=== INICIANDO PEER: {config['id_nodo']} ===")
+
+    hilo_servidor = threading.Thread(
+        target=iniciar_servidor,
+        args=(config["puerto"],),
+        daemon=True
+    )
     hilo_servidor.start()
 
     ciclo_principal(config, torrent)
