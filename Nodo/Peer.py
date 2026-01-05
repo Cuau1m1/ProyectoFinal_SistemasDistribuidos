@@ -76,45 +76,39 @@ def registrar_en_tracker(config, torrent, estado):
     registrar_nodo(config["tracker_ip"], config["tracker_puerto"], info_nodo)
     print(f"Nodo registrado: {config['id_nodo']} | {ip}:{config['puerto']} | {estado['porcentaje']}%")
 
-ruta_completo = f"../Archivos/completos/{torrent['nombre']}"
-ruta_parcial = f"../Archivos/parciales/{torrent['nombre']}"
-
-if os.path.exists(ruta_completo):
-    if not os.path.exists(ruta_parcial):
-        shutil.copy(ruta_completo, ruta_parcial)
-    estado = crear_estado_seeder(torrent)
-    print("Nodo iniciado como SEEDER")
 
 
 def ciclo_principal(config, torrent):
     estado = cargar_estado_descarga()
 
+    ruta_completo = f"../Archivos/completos/{torrent['nombre']}"
+    ruta_parcial = f"../Archivos/parciales/{torrent['nombre']}"
+
     if not estado or estado.get("id") != torrent["id"]:
-        estado = crear_estado_descarga(torrent)
-        print("Iniciando nueva descarga...")
+        if os.path.exists(ruta_completo):
+            estado = crear_estado_descarga(torrent)
+            estado["porcentaje"] = 100
+            print("Archivo completo detectado. Nodo SEEDER.")
+        else:
+            estado = crear_estado_descarga(torrent)
+            print("Iniciando nueva descarga...")
     else:
         print("Recuperando estado previo...")
 
     registrar_en_tracker(config, torrent, estado)
 
-    ruta_completo = "../Archivos/completos/" + torrent["nombre"]
-
     if estado["porcentaje"] < 100:
-        if os.path.exists(ruta_completo):
-            estado["porcentaje"] = 100
-            registrar_en_tracker(config, torrent, estado)
-            print("Archivo completo detectado. Modo SEEDER activo.")
-        else:
-            print("Iniciando descarga...")
-            gestionar_descarga(
-                torrent,
-                config["tracker_ip"],
-                config["tracker_puerto"],
-                config["id_nodo"]
-            )
-            print("Descarga completada. Modo SEEDER activo.")
+        print("Iniciando descarga...")
+        gestionar_descarga(
+            torrent,
+            config["tracker_ip"],
+            config["tracker_puerto"],
+            config["id_nodo"]
+        )
+        print("Descarga completada. Modo SEEDER activo.")
+        registrar_en_tracker(config, torrent, estado)
     else:
-        print("Archivo completo. Modo SEEDER activo.")
+        print("Modo SEEDER activo.")
 
     while True:
         try:
