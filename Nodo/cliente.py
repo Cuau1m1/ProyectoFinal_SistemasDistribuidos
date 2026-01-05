@@ -15,28 +15,30 @@ from utilerias import (
 
 MAX_DESCARGAS_CONCURRENTES = 4
 
-
 # ---------------- TRACKER ----------------
 
 def enviar_mensaje_tracker(ip, puerto, mensaje):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect((ip, puerto))
     s.send(json.dumps(mensaje).encode())
-    respuesta = s.recv(4096)
+    respuesta = s.recv(16384) # Aumentado buffer
     s.close()
     return respuesta
 
-
 def registrar_nodo(tracker_ip, tracker_puerto, info_nodo):
     mensaje = {"tipo": "REGISTRO", "datos": info_nodo}
-    enviar_mensaje_tracker(tracker_ip, tracker_puerto, mensaje)
-
+    try:
+        enviar_mensaje_tracker(tracker_ip, tracker_puerto, mensaje)
+    except Exception as e:
+        print(f"Error registrando en tracker: {e}")
 
 def consultar_peers(tracker_ip, tracker_puerto, id_archivo):
     mensaje = {"tipo": "CONSULTA", "datos": {"id_archivo": id_archivo}}
-    respuesta = enviar_mensaje_tracker(tracker_ip, tracker_puerto, mensaje)
-    return json.loads(respuesta.decode())["datos"]["peers"]
-
+    try:
+        respuesta = enviar_mensaje_tracker(tracker_ip, tracker_puerto, mensaje)
+        return json.loads(respuesta.decode())["datos"]["peers"]
+    except:
+        return []
 
 def actualizar_progreso(tracker_ip, tracker_puerto, id_nodo, id_archivo, porcentaje):
     mensaje = {
@@ -47,104 +49,141 @@ def actualizar_progreso(tracker_ip, tracker_puerto, id_nodo, id_archivo, porcent
             "porcentaje": porcentaje
         }
     }
-    enviar_mensaje_tracker(tracker_ip, tracker_puerto, mensaje)
+    try:
+        enviar_mensaje_tracker(tracker_ip, tracker_puerto, mensaje)
+    except:
+        pass
 
-#----
-def menu_principal():
-    print("\n=== MENU PEER ===")
-    print("1. Agregar torrent")
-    print("2. Ver progreso de descargas")
-    print("3. Salir")
-    return input("Opción: ")
+# ---------------- FUNCIONES NUEVAS (PUBLICAR / DESCARGAR) ----------------
 
-
-def seleccionar_torrent():
-    ruta = "../Archivos/torrents"
-    torrents = os.listdir(ruta)
-
-    if not torrents:
-        print("No hay torrents disponibles")
-        return None
-
-    print("Escoge un archivo de la lista:")
-    for t in torrents:
-        print(f"- {t}")
-
-    nombre = input("Archivo: ")
-    ruta_torrent = f"{ruta}/{nombre}"
-
-    if not os.path.exists(ruta_torrent):
-        print("Torrent no encontrado")
-        return None
-
-    with open(ruta_torrent, "r") as f:
-        return json.load(f)
-
-
-def ver_progreso(estado):
-    if not estado:
-        print("No hay descargas activas")
-        return
-
-    print("\n--- PROGRESO ---")
-    print(f"Archivo: {estado['nombre']}")
-    print(f"Progreso: {estado['porcentaje']}%")
-    print(f"Chunks: {len(estado['chunks_completados'])}/{estado['total_chunks']}")
-
-
-
-def solicitar_chunk(ip, puerto, id_archivo, indice, tamano_chunk, hash_esperado, estado):
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.connect((ip, puerto))
-
-    solicitud = {
-        "tipo": "GET_CHUNK",
+def publicar_torrent(tracker_ip, tracker_puerto, nombre_archivo, contenido_torrent):
+    mensaje = {
+        "tipo": "PUBLICAR_TORRENT",
         "datos": {
-            "id_archivo": id_archivo,
-            "indice_chunk": indice,
-            "tamano_chunk": tamano_chunk
+            "nombre": nombre_archivo,
+            "contenido": contenido_torrent
         }
     }
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((tracker_ip, tracker_puerto))
+        s.send(json.dumps(mensaje).encode())
+        s.close()
+    except Exception as e:
+        print(f"Error publicando torrent: {e}")
 
-    s.send(json.dumps(solicitud).encode())
+def obtener_lista_torrents(tracker_ip, tracker_puerto):
+    mensaje = {"tipo": "LISTAR_TORRENTS", "datos": {}}
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((tracker_ip, tracker_puerto))
+        s.send(json.dumps(mensaje).encode())
+        datos = s.recv(16384)
+        s.close()
+        return json.loads(datos.decode())["datos"]
+    except:
+        return []
 
-    encabezado = json.loads(s.recv(4096).decode())
-    tamano = encabezado["tamano_datos"]
+def descargar_torrent_tracker(tracker_ip, tracker_puerto, nombre_archivo):
+    # --- MODO DEBUG ACTIVADO ---
+    print(f"--- DEBUG: Pidiendo {nombre_archivo} al Tracker {tracker_ip} ---")
+    mensaje = {
+        "tipo": "DESCARGAR_TORRENT",
+        "datos": {"nombre": nombre_archivo}
+    }
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(5) 
+        s.connect((tracker_ip, tracker_puerto))
+        s.send(json.dumps(mensaje).encode())
+        
+        datos = s.recv(65536) 
+        s.close()
+        
+        if not datos:
+            print("--- DEBUG: Tracker cerró sin datos ---")
+            return None
 
-    datos = b""
-    while len(datos) < tamano:
-        datos += s.recv(4096)
+        respuesta = json.loads(datos.decode())
+        if respuesta["tipo"] == "ARCHIVO_TORRENT":
+            return respuesta["datos"]
+        else:
+            print(f"--- DEBUG: Tracker error: {respuesta}")
+    except Exception as e:
+        print(f"ERROR RED TRACKER: {e}")
+        pass
+    return None
 
-    s.close()
+# ---------------- P2P CLIENTE ----------------
 
-    if verificar_hash_chunk(datos, hash_esperado):
-        ruta = f"../Archivos/parciales/{estado['nombre']}"
-        escribir_chunk(ruta, indice, datos, tamano_chunk)
-        marcar_chunk_completado(estado, indice)
-        mostrar_estado_nodo(estado)
+def solicitar_chunk(ip, puerto, nombre_archivo, indice, tamano_chunk, hash_esperado, estado):
 
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(10) 
+        s.connect((ip, puerto))
 
-# ---------------- GESTOR DE DESCARGA ----------------
+        solicitud = {
+            "tipo": "GET_CHUNK",
+            "datos": {
+                "id_archivo": nombre_archivo, 
+                "indice_chunk": indice,
+                "tamano_chunk": tamano_chunk
+            }
+        }
+
+        s.send(json.dumps(solicitud).encode())
+
+        # Recibir encabezado
+        buffer_head = s.recv(4096).decode()
+        if not buffer_head: return
+        
+        encabezado = json.loads(buffer_head)
+        tamano = encabezado["tamano_datos"]
+
+        # Recibir datos binarios
+        datos = b""
+        while len(datos) < tamano:
+            chunk = s.recv(4096)
+            if not chunk: break
+            datos += chunk
+
+        s.close()
+
+        if verificar_hash_chunk(datos, hash_esperado):
+            ruta = f"../Archivos/parciales/{estado['nombre']}"
+            escribir_chunk(ruta, indice, datos, tamano_chunk)
+            marcar_chunk_completado(estado, indice)
+            mostrar_estado_nodo(estado)
+        else:
+            print(f" Hash incorrecto en chunk {indice} de {ip}")
+            
+    except Exception as e:
+        print(f"Error descargando chunk {indice}: {e}") # Descomentar para ver errores P2P
+        pass
+
 def gestionar_descarga(torrent, tracker_ip, tracker_puerto, id_nodo):
     estado = cargar_estado_descarga()
     if not estado:
         estado = crear_estado_descarga(torrent)
+
+    print(f"Iniciando descarga de: {torrent['nombre']} ({estado['porcentaje']}%)")
 
     while estado["porcentaje"] < 100:
         chunks_faltantes = obtener_chunks_faltantes(estado)
         peers = consultar_peers(tracker_ip, tracker_puerto, torrent["id"])
 
         if not peers:
-            time.sleep(2)
+            # Si no hay peers, esperamos un poco
+            print("Esperando peers...")
+            time.sleep(3)
             continue
 
         hilos = []
-
-        for indice in chunks_faltantes:
-            if len(hilos) >= MAX_DESCARGAS_CONCURRENTES:
-                for h in hilos:
-                    h.join()
-                hilos = []
+        
+        # Limitamos a chunks faltantes
+        for i, indice in enumerate(chunks_faltantes):
+            if i >= MAX_DESCARGAS_CONCURRENTES: break # Solo lanzamos N hilos a la vez
 
             peer = peers[indice % len(peers)]
             hash_esperado = torrent["hash_chunks"][indice]
@@ -154,94 +193,28 @@ def gestionar_descarga(torrent, tracker_ip, tracker_puerto, id_nodo):
                 args=(
                     peer["ip"],
                     peer["puerto"],
-                    torrent["id"],
+                    torrent["nombre"], 
                     indice,
                     torrent["tamano_chunk"],
                     hash_esperado,
                     estado
                 )
             )
-
             hilo.start()
             hilos.append(hilo)
 
         for h in hilos:
             h.join()
 
-        actualizar_progreso(
-            tracker_ip,
-            tracker_puerto,
-            id_nodo,
-            torrent["id"],
-            estado["porcentaje"]
-        )
-
-
-# ---------------- VISUAL ----------------
+        actualizar_progreso(tracker_ip, tracker_puerto, id_nodo, torrent["id"], estado["porcentaje"])
+    
+        if not hilos:
+            time.sleep(1)
 
 def mostrar_estado_nodo(estado):
-    print("\n--- ESTADO DEL NODO ---")
-    print(f"Archivo: {estado['nombre']}")
-    print(f"Progreso: {estado['porcentaje']}%")
-    print(f"Chunks: {len(estado['chunks_completados'])}/{estado['total_chunks']}")
-
+    print(f"\rProgreso: {estado['porcentaje']}% | Chunks: {len(estado['chunks_completados'])}/{estado['total_chunks']}", end="")
     if estado["porcentaje"] == 100:
-        print("Rol: SEEDER")
-    else:
-        print("Rol: LEECHER")
-
-    print("-----------------------\n")
-
-if __name__ == "__main__":
-    with open("config_nodo.json", "r") as f:
-        config = json.load(f)
-
-    tracker_ip = config["tracker_ip"]
-    tracker_puerto = config["tracker_puerto"]
-    id_nodo = config["id_nodo"]
-    ip = obtener_ip_publica()
-    puerto = config["puerto"]
-
-    estado = None
-
-    while True:
-        opcion = menu_principal()
-
-        if opcion == "1":
-            torrent = seleccionar_torrent()
-            if not torrent:
-                continue
-
-            estado = cargar_estado_descarga()
-            if not estado:
-                estado = crear_estado_descarga(torrent)
-
-            info_nodo = {
-                "id_nodo": id_nodo,
-                "ip": ip,
-                "puerto": puerto,
-                "archivos": [
-                    {
-                        "id": torrent["id"],
-                        "porcentaje": estado["porcentaje"]
-                    }
-                ]
-            }
-
-            registrar_nodo(tracker_ip, tracker_puerto, info_nodo)
-            print("Torrent agregado y nodo registrado en tracker")
-
-            gestionar_descarga(torrent, tracker_ip, tracker_puerto, id_nodo)
-
-        elif opcion == "2":
-            ver_progreso(estado)
-
-        elif opcion == "3":
-            print("Saliendo...")
-            break
-
-        else:
-            print("Opción no válida")
+        print("\n DESCARGA COMPLETADA. Eres SEEDER.")
 
 def obtener_ip_publica():
     try:
@@ -252,94 +225,3 @@ def obtener_ip_publica():
         return ip
     except:
         return "127.0.0.1"
-
-
-def publicar_torrent(tracker_ip, tracker_puerto, nombre_archivo, contenido_torrent):
-    mensaje = {
-        "tipo": "PUBLICAR_TORRENT",
-        "datos": {
-            "nombre": nombre_archivo,
-            "contenido": contenido_torrent
-        }
-    }
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect((tracker_ip, tracker_puerto))
-        s.send(json.dumps(mensaje).encode())
-        s.close()
-    except:
-        pass
-
-def obtener_lista_torrents(tracker_ip, tracker_puerto):
-    mensaje = {"tipo": "LISTAR_TORRENTS", "datos": {}}
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect((tracker_ip, tracker_puerto))
-        s.send(json.dumps(mensaje).encode())
-        datos = s.recv(16384)
-        s.close()
-        respuesta = json.loads(datos.decode())
-        return respuesta["datos"]
-    except:
-        return []
-
-def descargar_torrent_tracker(tracker_ip, tracker_puerto, nombre_archivo):
-    mensaje = {
-        "tipo": "DESCARGAR_TORRENT",
-        "datos": {"nombre": nombre_archivo}
-    }
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect((tracker_ip, tracker_puerto))
-        s.send(json.dumps(mensaje).encode())
-        datos = s.recv(16384)
-        s.close()
-        respuesta = json.loads(datos.decode())
-        if respuesta["tipo"] == "ARCHIVO_TORRENT":
-            return respuesta["datos"]
-    except:
-        pass
-    return None
-
-def publicar_torrent(tracker_ip, tracker_puerto, nombre_archivo, contenido_torrent):
-    mensaje = {
-        "tipo": "PUBLICAR_TORRENT",
-        "datos": {
-            "nombre": nombre_archivo,
-            "contenido": contenido_torrent
-        }
-    }
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect((tracker_ip, tracker_puerto))
-        s.send(json.dumps(mensaje).encode())
-        s.close()
-    except:
-        pass
-
-def obtener_lista_torrents(tracker_ip, tracker_puerto):
-    mensaje = {"tipo": "LISTAR_TORRENTS", "datos": {}}
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect((tracker_ip, tracker_puerto))
-        s.send(json.dumps(mensaje).encode())
-        datos = s.recv(16384) # Buffer grande
-        s.close()
-        return json.loads(datos.decode())["datos"]
-    except:
-        return []
-
-def descargar_torrent_tracker(tracker_ip, tracker_puerto, nombre_archivo):
-    mensaje = {"tipo": "DESCARGAR_TORRENT", "datos": {"nombre": nombre_archivo}}
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect((tracker_ip, tracker_puerto))
-        s.send(json.dumps(mensaje).encode())
-        datos = s.recv(16384)
-        s.close()
-        resp = json.loads(datos.decode())
-        if resp["tipo"] == "ARCHIVO_TORRENT":
-            return resp["datos"]
-    except:
-        pass
-    return None

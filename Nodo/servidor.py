@@ -6,7 +6,6 @@ from utilerias import leer_chunk
 
 def manejar_cliente(conexion):
     try:
-        # Recibir encabezado
         datos_raw = conexion.recv(4096)
         if not datos_raw:
             conexion.close()
@@ -17,23 +16,24 @@ def manejar_cliente(conexion):
 
         indice = datos["indice_chunk"]
         tamano_chunk = datos["tamano_chunk"]
+        nombre_archivo = datos["id_archivo"] 
         
-        # 1. Definir posibles rutas
-        ruta_parcial = f"../Archivos/parciales/{datos['id_archivo']}"
-        ruta_completa = f"../Archivos/completos/{datos['id_archivo']}"
+        # Rutas usando el NOMBRE del archivo
+        ruta_parcial = f"../Archivos/parciales/{nombre_archivo}"
+        ruta_completa = f"../Archivos/completos/{nombre_archivo}"
 
-        # 2. Decidir cual usar (Prioridad al completo)
+        # Prioridad al completo
         if os.path.exists(ruta_completa):
             ruta = ruta_completa
         else:
             ruta = ruta_parcial
-        # Verificamos si la ruta elegida realmente existe en el disco
+        
         if not os.path.exists(ruta):
-            print(f"⚠️ Error: Me pidieron el archivo {datos['id_archivo']} pero no lo tengo.")
+            # Este print ahora no deberia salir si el archivo existe
+            print(f" Servidor: No encuentro {nombre_archivo}") 
             conexion.close()
             return  
 
-        # 3. Ahora es seguro leer el chunk
         chunk = leer_chunk(ruta, indice, tamano_chunk)
 
         respuesta = {
@@ -45,13 +45,14 @@ def manejar_cliente(conexion):
         conexion.send(chunk)
         
     except Exception as e:
-        print(f"Error manejando cliente: {e}")
+        print(f"Error servidor: {e}")
+        pass
     finally:
         conexion.close()
 
-
 def iniciar_servidor(puerto):
     servidor = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    servidor.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) 
     servidor.bind(("0.0.0.0", puerto))
     servidor.listen()
     print(f"Servidor escuchando en puerto {puerto}...")
@@ -61,5 +62,5 @@ def iniciar_servidor(puerto):
             conexion, _ = servidor.accept()
             hilo = threading.Thread(target=manejar_cliente, args=(conexion,))
             hilo.start()
-        except Exception as e:
-            print(f"Error aceptando conexión: {e}")
+        except:
+            pass
