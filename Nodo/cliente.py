@@ -2,7 +2,7 @@ import socket
 import json
 import threading
 import os
-
+import time
 
 from utilerias import (
     escribir_chunk,
@@ -93,7 +93,6 @@ def ver_progreso(estado):
 
 
 
-
 def solicitar_chunk(ip, puerto, id_archivo, indice, tamano_chunk, hash_esperado, estado):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect((ip, puerto))
@@ -109,19 +108,7 @@ def solicitar_chunk(ip, puerto, id_archivo, indice, tamano_chunk, hash_esperado,
 
     s.send(json.dumps(solicitud).encode())
 
-    data = b""
-    while True:
-        parte = s.recv(4096)
-        if not parte:
-            break
-        data += parte
-
-    if not data:
-        s.close()
-        return
-
-    encabezado = json.loads(data.decode())
-
+    encabezado = json.loads(s.recv(4096).decode())
     tamano = encabezado["tamano_datos"]
 
     datos = b""
@@ -131,14 +118,13 @@ def solicitar_chunk(ip, puerto, id_archivo, indice, tamano_chunk, hash_esperado,
     s.close()
 
     if verificar_hash_chunk(datos, hash_esperado):
-        ruta = f"../Archivos/parciales/{estado['id']}"
+        ruta = f"../Archivos/parciales/{estado['nombre']}"
         escribir_chunk(ruta, indice, datos, tamano_chunk)
         marcar_chunk_completado(estado, indice)
         mostrar_estado_nodo(estado)
 
 
 # ---------------- GESTOR DE DESCARGA ----------------
-
 def gestionar_descarga(torrent, tracker_ip, tracker_puerto, id_nodo):
     estado = cargar_estado_descarga()
     if not estado:
@@ -148,6 +134,10 @@ def gestionar_descarga(torrent, tracker_ip, tracker_puerto, id_nodo):
         chunks_faltantes = obtener_chunks_faltantes(estado)
         peers = consultar_peers(tracker_ip, tracker_puerto, torrent["id"])
 
+        if not peers:
+            time.sleep(2)
+            continue
+
         hilos = []
 
         for indice in chunks_faltantes:
@@ -155,9 +145,7 @@ def gestionar_descarga(torrent, tracker_ip, tracker_puerto, id_nodo):
                 for h in hilos:
                     h.join()
                 hilos = []
-            if not peers:
-    time.sleep(2)
-    continue
+
             peer = peers[indice % len(peers)]
             hash_esperado = torrent["hash_chunks"][indice]
 
