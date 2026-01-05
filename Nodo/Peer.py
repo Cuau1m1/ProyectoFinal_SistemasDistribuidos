@@ -85,6 +85,7 @@ if os.path.exists(ruta_completo):
     estado = crear_estado_seeder(torrent)
     print("Nodo iniciado como SEEDER")
 
+
 def ciclo_principal(config, torrent):
     estado = cargar_estado_descarga()
 
@@ -96,7 +97,7 @@ def ciclo_principal(config, torrent):
 
     registrar_en_tracker(config, torrent, estado)
 
-    ruta_completo = f"../Archivos/completos/{torrent['nombre']}"
+    ruta_completo = "../Archivos/completos/" + torrent["nombre"]
 
     if estado["porcentaje"] < 100:
         if os.path.exists(ruta_completo):
@@ -140,4 +141,3 @@ if __name__ == "__main__":
     hilo_servidor.start()
 
     ciclo_principal(config, torrent)
-
