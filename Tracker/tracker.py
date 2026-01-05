@@ -4,8 +4,8 @@ import json
 import threading
 
 nodos = {}
+lock_nodos = threading.Lock()
 
-lock_nodos = threading.lock()
 def manejar_nodo(conexion):
     datos_raw = conexion.recv(4096)
     if not datos_raw:
