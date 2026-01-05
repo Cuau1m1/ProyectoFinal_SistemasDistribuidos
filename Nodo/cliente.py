@@ -193,7 +193,6 @@ def solicitar_chunk(ip, puerto, nombre_archivo, indice, tamano_chunk, hash_esper
     except Exception as e:
         print(f" Error en chunk {indice}: {e}")
 
-
 def gestionar_descarga(torrent, tracker_ip, tracker_puerto, id_nodo):
     estado = cargar_estado_descarga()
     if not estado:
@@ -201,31 +200,49 @@ def gestionar_descarga(torrent, tracker_ip, tracker_puerto, id_nodo):
 
     print(f"Iniciando descarga de: {torrent['nombre']} ({estado['porcentaje']}%)")
 
+    # --- DEBUG: Ver quién soy yo ---
+    print(f"🕵️ DEBUG: Yo soy el nodo ID: '{id_nodo}'")
+
     while estado["porcentaje"] < 100:
         chunks_faltantes = obtener_chunks_faltantes(estado)
         peers = consultar_peers(tracker_ip, tracker_puerto, torrent["id"])
 
-        # --- FIX CRITICO: FILTRO ANTI-CANIBALISMO ---
-        # Filtramos para que NO aparezca mi propio ID en la lista
         if peers:
-            peers = [p for p in peers if p.get("id_nodo") != id_nodo]
-        # --------------------------------------------
+            # --- DEBUG: Ver lista cruda antes de filtrar ---
+            # print(f"DEBUG: Lista recibida del Tracker: {peers}") 
+            
+            # --- FILTRO ROBUSTO (ID y PUERTO) ---
+            # Filtramos si el ID coincide O si el puerto es el mío (6001)
+            peers_filtrados = []
+            for p in peers:
+                # Chequeo de ID
+                es_mi_id = (p.get("id_nodo") == id_nodo)
+                
+                # Chequeo de Puerto (Por si el ID falla)
+                # Asumimos que si el puerto es 6001, soy yo (parche de seguridad)
+                es_mi_puerto = (str(p.get("puerto")) == "6001") 
+                
+                if not es_mi_id and not es_mi_puerto:
+                    peers_filtrados.append(p)
+                else:
+                    print(f"🚫 DEBUG: Me eliminé de la lista a mí mismo: {p}")
+            
+            peers = peers_filtrados
+            # -------------------------------------
 
         if not peers:
-            print("Esperando peers...")
+            print("💤 Esperando peers (Nadie más tiene el archivo)...")
             time.sleep(3)
             continue
 
         hilos = []
-
-        # Limitamos a chunks faltantes
         for i, indice in enumerate(chunks_faltantes):
-            if i >= MAX_DESCARGAS_CONCURRENTES: 
-                break # Solo lanzamos N hilos a la vez
+            if i >= MAX_DESCARGAS_CONCURRENTES: break 
 
-            # Round Robin para elegir peer
             peer = peers[indice % len(peers)]
-            hash_esperado = torrent["hash_chunks"][indice]
+            
+            # --- DEBUG: ¿A quién voy a conectar? ---
+            # print(f"--> Conectando a {peer['ip']}:{peer['puerto']} para chunk {indice}")
 
             hilo = threading.Thread(
                 target=solicitar_chunk,
@@ -235,7 +252,7 @@ def gestionar_descarga(torrent, tracker_ip, tracker_puerto, id_nodo):
                     torrent["nombre"], 
                     indice,
                     torrent["tamano_chunk"],
-                    hash_esperado,
+                    torrent["hash_chunks"][indice], # Hash esperado
                     estado
                 )
             )
@@ -249,7 +266,6 @@ def gestionar_descarga(torrent, tracker_ip, tracker_puerto, id_nodo):
     
         if not hilos:
             time.sleep(1)
-
 def mostrar_estado_nodo(estado):
     print(f"\rProgreso: {estado['porcentaje']}% | Chunks: {len(estado['chunks_completados'])}/{estado['total_chunks']}", end="")
     if estado["porcentaje"] == 100:
