@@ -14,6 +14,14 @@ from utilerias import (
 )
 
 MAX_DESCARGAS_CONCURRENTES = 4
+# --- Función Auxiliar para leer bytes exactos ---
+def recibir_exacto(socket_cliente, cantidad):
+    buffer = b""
+    while len(buffer) < cantidad:
+        chunk = socket_cliente.recv(cantidad - len(buffer))
+        if not chunk: raise Exception("Conexión cerrada prematuramente")
+        buffer += chunk
+    return buffer
 
 # ---------------- TRACKER ----------------
 
@@ -135,7 +143,7 @@ def descargar_torrent_tracker(tracker_ip, tracker_puerto, nombre_archivo):
 def solicitar_chunk(ip, puerto, nombre_archivo, indice, tamano_chunk, hash_esperado, estado):
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(10)
+        s.settimeout(15) # Tiempo generoso
         s.connect((ip, puerto))
 
         solicitud = {
@@ -148,32 +156,19 @@ def solicitar_chunk(ip, puerto, nombre_archivo, indice, tamano_chunk, hash_esper
         }
         s.send(json.dumps(solicitud).encode())
 
-        buffer = b""
-        while b"\n" not in buffer:
-            temp = s.recv(1024)
-            if not temp: break
-            buffer += temp
+        # --- LECTURA BLINDADA ---
+        # 1. Leer exactamente 10 bytes para saber el tamaño del JSON
+        header_len = recibir_exacto(s, 10)
+        tamano_json = int(header_len.decode())
         
-        if b"\n" not in buffer:
-            s.close()
-            return
-
-        # Cortamos exactamente donde está el salto de línea
-        partes = buffer.split(b"\n", 1)
-        header_json = partes[0]
-        datos_video_iniciales = partes[1] if len(partes) > 1 else b""
+        # 2. Leer exactamente el JSON
+        json_bytes = recibir_exacto(s, tamano_json)
+        encabezado = json.loads(json_bytes.decode())
         
-        # Ahora decodificamos SOLO el JSON (seguro)
-        encabezado = json.loads(header_json.decode())
-        tamano_total = encabezado["tamano_datos"]
-        
-        # Juntamos lo que sobró del video con el resto que falta
-        datos = datos_video_iniciales
-        while len(datos) < tamano_total:
-            chunk = s.recv(4096)
-            if not chunk: break
-            datos += chunk
-        # -----------------------------------------------
+        # 3. Leer exactamente el video
+        tamano_video = encabezado["tamano_datos"]
+        datos = recibir_exacto(s, tamano_video)
+        # ------------------------
 
         s.close()
 
@@ -183,12 +178,11 @@ def solicitar_chunk(ip, puerto, nombre_archivo, indice, tamano_chunk, hash_esper
             marcar_chunk_completado(estado, indice)
             mostrar_estado_nodo(estado)
         else:
-            print(f" Hash incorrecto en chunk {indice} (Se borrará y reintentará luego)")
+            print(f"⚠️ Hash incorrecto en chunk {indice} (Reintentando...)")
             
     except Exception as e:
-        # print(f"Error en chunk {indice}: {e}")
+        # print(f"Fallo chunk {indice}: {e}") # Debug opcional
         pass
-
 
 def gestionar_descarga(torrent, tracker_ip, tracker_puerto, id_nodo):
     estado = cargar_estado_descarga()
