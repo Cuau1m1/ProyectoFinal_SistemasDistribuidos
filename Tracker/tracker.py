@@ -73,9 +73,9 @@ def mostrar_estado_tracker():
         print(f"Nodo: {nodo_id} | {info['ip']}:{info['puerto']}")
         for archivo in info["archivos"]:
             estado = "VISIBLE" if archivo["porcentaje"] >= 20 else "OCULTO"
-print(f"  Archivo: {archivo['id']} | {archivo['porcentaje']}% | {estado}")
-
+            print(f"  Archivo: {archivo['id']} | {archivo['porcentaje']}% | {estado}")
     print("==========================\n")
+
 
 
 if __name__ == "__main__":
