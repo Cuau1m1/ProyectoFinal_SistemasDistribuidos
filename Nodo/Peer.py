@@ -138,46 +138,26 @@ def ciclo_principal(config, torrent):
             time.sleep(10)
         except KeyboardInterrupt:
             sys.exit(0)
-def publicar_todos_los_torrents(config):
+def publicar_torrents_seeder(config):
     ruta_torrents = "../Archivos/torrents"
-
     if not os.path.exists(ruta_torrents):
-        print("[SEEDER] No existe carpeta de torrents.")
         return
 
-    torrents = [x for x in os.listdir(ruta_torrents) if x.endswith(".json")]
+    for archivo in os.listdir(ruta_torrents):
+        if not archivo.endswith(".torrent.json"):
+            continue
 
-    if not torrents:
-        print("[SEEDER] No hay torrents para publicar.")
-        return
-
-    ip = obtener_ip_local_salida()
-
-    for archivo in torrents:
-        ruta = f"{ruta_torrents}/{archivo}"
+        ruta = os.path.join(ruta_torrents, archivo)
         with open(ruta, "r") as f:
             torrent = json.load(f)
 
-        estado = crear_estado_seeder(torrent)
-
-        info_nodo = {
-            "id_nodo": config["id_nodo"],
-            "ip": ip,
-            "puerto": config["puerto"],
-            "archivos": [{
-                "id": torrent["id"],
-                "nombre": torrent["nombre"],
-                "porcentaje": 100
-            }]
-        }
-
-        registrar_nodo(
+        publicar_torrent(
             config["tracker_ip"],
             config["tracker_puerto"],
-            info_nodo
+            torrent["nombre"],
+            torrent
         )
-
-        print(f"[SEEDER] Publicado: {torrent['nombre']} (100%)")
+        print(f"[SEEDER] Torrent publicado en tracker: {torrent['nombre']}")
 
 
 if __name__ == "__main__":
