@@ -86,10 +86,13 @@ def verificar_hash_chunk(datos, hash_esperado):
 
 #Estado
 
-def obtener_ruta_estado(torrent_id):
-    return f"estado_{torrent_id}.json"
+def obtener_ruta_estado(id_torrent):
+    carpeta = "estados"
+    os.makedirs(carpeta, exist_ok=True)
+    return os.path.join(carpeta, f"{id_torrent}.json")
 
 def crear_estado_descarga(torrent):
+    ruta = obtener_ruta_estado(torrent["id"])
     estado = {
         "id": torrent["id"],
         "nombre": torrent["nombre"],
@@ -99,22 +102,23 @@ def crear_estado_descarga(torrent):
         "chunks_completados": [],
         "porcentaje": 0
     }
-    ruta = obtener_ruta_estado(torrent["id"])
-    guardar_estado_descarga(estado, ruta)
+    with open(ruta, "w") as archivo:
+        json.dump(estado, archivo, indent=4)
     return estado
 
-
-def cargar_estado_descarga(torrent_id):
-    ruta = obtener_ruta_estado(torrent_id)
+def cargar_estado_descarga(id_torrent):
+    ruta = obtener_ruta_estado(id_torrent)
     if not os.path.exists(ruta):
         return None
     with open(ruta, "r") as archivo:
         return json.load(archivo)
 
 
-def guardar_estado_descarga(estado, ruta):
+def guardar_estado_descarga(estado):
+    ruta = obtener_ruta_estado(estado["id"])
     with open(ruta, "w") as archivo:
         json.dump(estado, archivo, indent=4)
+
 def marcar_chunk_completado(estado, indice_chunk):
     if indice_chunk not in estado["chunks_completados"]:
         estado["chunks_completados"].append(indice_chunk)
@@ -133,7 +137,9 @@ def calcular_porcentaje(estado):
     total = estado["total_chunks"]
     return int((completados / total) * 100)
 
+
 def crear_estado_seeder(torrent):
+    ruta = obtener_ruta_estado(torrent["id"])
     estado = {
         "id": torrent["id"],
         "nombre": torrent["nombre"],
@@ -143,6 +149,6 @@ def crear_estado_seeder(torrent):
         "chunks_completados": list(range(torrent["total_chunks"])),
         "porcentaje": 100
     }
-    ruta = obtener_ruta_estado(torrent["id"])
-    guardar_estado_descarga(estado, ruta)
+    with open(ruta, "w") as archivo:
+        json.dump(estado, archivo, indent=4)
     return estado
