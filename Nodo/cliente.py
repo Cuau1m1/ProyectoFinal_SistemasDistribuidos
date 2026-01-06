@@ -13,7 +13,7 @@ from utilerias import (
     obtener_chunks_faltantes
 )
 
-MAX_DESCARGAS_CONCURRENTES = 6
+MAX_DESCARGAS_CONCURRENTES = 2
 
 # --- Función Auxiliar para leer bytes exactos ---
 def recibir_exacto(socket_cliente, cantidad):
