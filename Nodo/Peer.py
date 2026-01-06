@@ -103,19 +103,11 @@ def ciclo_principal(config, torrent):
 
     ruta_completo = f"../Archivos/completos/{torrent['nombre']}"
 
+    # --- DETERMINAR ESTADO ---
     if os.path.exists(ruta_completo):
         print(f" Archivo físico detectado: {torrent['nombre']}")
         estado = crear_estado_seeder(torrent)
         print("Estado forzado a 100% (Modo Seeder Automático).")
-
-        # PUBLICAR TORRENT EN EL TRACKER
-        publicar_torrent(
-            config["tracker_ip"],
-            config["tracker_puerto"],
-            torrent["nombre"],
-            torrent
-        )
-
     else:
         estado = cargar_estado_descarga(torrent["id"])
 
@@ -125,19 +117,75 @@ def ciclo_principal(config, torrent):
         else:
             print(f"Recuperando progreso previo: {estado['porcentaje']}%")
 
+    # --- REGISTRO EN TRACKER ---
     registrar_en_tracker(config, torrent, estado)
+
+    # --- DESCARGA SI ES LEECHER ---
+    if estado["porcentaje"] < 100:
+        gestionar_descarga(
+            torrent,
+            config["tracker_ip"],
+            config["tracker_puerto"],
+            config["id_nodo"]
+        )
+        print("Descarga finalizada.")
+        estado["porcentaje"] = 100
+        registrar_en_tracker(config, torrent, estado)
+
+    # --- MANTENER PEER VIVO ---
+    while True:
+        try:
+            time.sleep(10)
+        except KeyboardInterrupt:
+            sys.exit(0)
+def publicar_todos_los_torrents(config):
+    ruta_torrents = "../Archivos/torrents"
+
+    if not os.path.exists(ruta_torrents):
+        print("[SEEDER] No existe carpeta de torrents.")
+        return
+
+    torrents = [x for x in os.listdir(ruta_torrents) if x.endswith(".json")]
+
+    if not torrents:
+        print("[SEEDER] No hay torrents para publicar.")
+        return
+
+    ip = obtener_ip_local_salida()
+
+    for archivo in torrents:
+        ruta = f"{ruta_torrents}/{archivo}"
+        with open(ruta, "r") as f:
+            torrent = json.load(f)
+
+        estado = crear_estado_seeder(torrent)
+
+        info_nodo = {
+            "id_nodo": config["id_nodo"],
+            "ip": ip,
+            "puerto": config["puerto"],
+            "archivos": [{
+                "id": torrent["id"],
+                "nombre": torrent["nombre"],
+                "porcentaje": 100
+            }]
+        }
+
+        registrar_nodo(
+            config["tracker_ip"],
+            config["tracker_puerto"],
+            info_nodo
+        )
+
+        print(f"[SEEDER] Publicado: {torrent['nombre']} (100%)")
+
 
 if __name__ == "__main__":
     config = cargar_config()
-    torrent = seleccionar_torrent(config)
-    
-    if not torrent:
-        sys.exit(1)
 
     print(f"\n=== INICIANDO PEER: {config['id_nodo']} ===")
     ip = obtener_ip_local_salida()
-    print(f"[NODO] Conectándose a la red desde IP: {ip} (puerto {config['puerto']})")
-
+    print(f"[NODO] Conectándose desde IP: {ip} (puerto {config['puerto']})")
 
     hilo_servidor = threading.Thread(
         target=iniciar_servidor,
@@ -145,5 +193,16 @@ if __name__ == "__main__":
         daemon=True
     )
     hilo_servidor.start()
+
+    # --- SEEDER AUTOMÁTICO ---
+    if config["id_nodo"].startswith("SEEDER"):
+        publicar_todos_los_torrents(config)
+        while True:
+            time.sleep(10)
+
+    # --- LEECHER ---
+    torrent = seleccionar_torrent(config)
+    if not torrent:
+        sys.exit(1)
 
     ciclo_principal(config, torrent)
