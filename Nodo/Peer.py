@@ -158,6 +158,37 @@ def publicar_torrents_seeder(config):
             torrent
         )
         print(f"[SEEDER] Torrent publicado en tracker: {torrent['nombre']}")
+def publicar_todos_los_torrents(config):
+    carpeta_torrents = "torrents"
+
+    if not os.path.exists(carpeta_torrents):
+        print("[SEEDER] No existe la carpeta de torrents.")
+        return
+
+    archivos = os.listdir(carpeta_torrents)
+
+    for nombre in archivos:
+        if not nombre.endswith(".torrent.json"):
+            continue
+
+        ruta = os.path.join(carpeta_torrents, nombre)
+
+        try:
+            with open(ruta, "r") as f:
+                torrent = json.load(f)
+
+            estado = {
+                "progreso": 100,
+                "tamano_total": torrent["tamano_total"],
+                "chunks_completados": torrent["num_chunks"],
+                "es_seeder": True
+            }
+
+            registrar_en_tracker(config, torrent, estado)
+            print(f"[SEEDER] Publicado: {torrent['nombre_archivo']} (100%)")
+
+        except Exception as e:
+            print(f"[SEEDER] Error publicando {nombre}: {e}")
 
 
 if __name__ == "__main__":
