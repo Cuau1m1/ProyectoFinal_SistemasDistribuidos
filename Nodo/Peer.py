@@ -102,12 +102,20 @@ def registrar_en_tracker(config, torrent, estado):
 def ciclo_principal(config, torrent):
 
     ruta_completo = f"../Archivos/completos/{torrent['nombre']}"
-    ruta_estado = obtener_ruta_estado(torrent["id"])
 
     if os.path.exists(ruta_completo):
         print(f" Archivo físico detectado: {torrent['nombre']}")
         estado = crear_estado_seeder(torrent)
         print("Estado forzado a 100% (Modo Seeder Automático).")
+
+        # PUBLICAR TORRENT EN EL TRACKER
+        publicar_torrent(
+            config["tracker_ip"],
+            config["tracker_puerto"],
+            torrent["nombre"],
+            torrent
+        )
+
     else:
         estado = cargar_estado_descarga(torrent["id"])
 
