@@ -178,50 +178,47 @@ def solicitar_chunk(ip, puerto, nombre_archivo, indice, tamano_chunk, hash_esper
         pass
     except Exception as e:
         # Solo imprimimos errores graves de sistema
-        print(f"\n❌ Error crítico en chunk {indice}: {e}")
+        print(f"\n Error crítico en chunk {indice}: {e}")
 
 def gestionar_descarga(torrent, tracker_ip, tracker_puerto, id_nodo):
     estado = cargar_estado_descarga()
     if not estado:
         estado = crear_estado_descarga(torrent)
 
-    print(f"Iniciando descarga de: {torrent['nombre']} ({estado['porcentaje']}%)")
+    print(f"[DESCARGA] Iniciando: {torrent['nombre']} ({estado['porcentaje']}%)")
 
     while estado["porcentaje"] < 100:
         chunks_faltantes = obtener_chunks_faltantes(estado)
         peers = consultar_peers(tracker_ip, tracker_puerto, torrent["id"])
 
-        if peers:
-            peers_filtrados = []
-            for p in peers:
-                # --- FILTRO LIMPIO Y FUNCIONAL ---
-                peer_id = p.get("id_nodo")
-                id_remoto = str(peer_id).strip().upper() if peer_id else "NONE"
-                mi_id = str(id_nodo).strip().upper()
+        if len(peers) > 1:
+            print("[SIMULTANEO] Descarga desde multiples nodos")
 
-                # Solo agregamos si el ID es diferente
-                if id_remoto != mi_id:
-                    peers_filtrados.append(p)
-            
-            peers = peers_filtrados
+        peers_filtrados = []
+        for p in peers:
+            if str(p.get("id_nodo")).strip().upper() != str(id_nodo).strip().upper():
+                peers_filtrados.append(p)
+        peers = peers_filtrados
 
         if not peers:
-            print("💤 Esperando peers disponibles...   ", end="\r")
+            print("[ESPERA] No hay peers disponibles", end="\r")
             time.sleep(3)
             continue
 
         hilos = []
         for i, indice in enumerate(chunks_faltantes):
-            if i >= MAX_DESCARGAS_CONCURRENTES: break 
+            if i >= MAX_DESCARGAS_CONCURRENTES:
+                break
 
             peer = peers[indice % len(peers)]
-            
+            print(f"[P2P] Chunk {indice} desde {peer['ip']}:{peer['puerto']}")
+
             hilo = threading.Thread(
                 target=solicitar_chunk,
                 args=(
                     peer["ip"],
                     peer["puerto"],
-                    torrent["nombre"], 
+                    torrent["nombre"],
                     indice,
                     torrent["tamano_chunk"],
                     torrent["hash_chunks"][indice],
@@ -235,9 +232,6 @@ def gestionar_descarga(torrent, tracker_ip, tracker_puerto, id_nodo):
             h.join()
 
         actualizar_progreso(tracker_ip, tracker_puerto, id_nodo, torrent["id"], estado["porcentaje"])
-    
-        if not hilos:
-            time.sleep(1)
 
 def mostrar_estado_nodo(estado):
     # Barra de progreso limpia que se sobrescribe a sí misma (\r)

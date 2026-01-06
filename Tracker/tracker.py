@@ -23,18 +23,17 @@ def manejar_nodo(conexion):
 
     if tipo == "REGISTRO":
         with lock_nodos:
-            # Guardamos toda la info del nodo (incluyendo su ID)
             nodos[info["id_nodo"]] = info
+        print(f"[TRACKER] Nodo conectado: {info['id_nodo']} | {info['ip']}:{info['puerto']}")
 
     elif tipo == "CONSULTA":
         peers = []
         with lock_nodos:
             for nodo in nodos.values():
                 for archivo in nodo["archivos"]:
-                    # Filtramos nodos que tengan al menos 20% del archivo
-                    if (archivo["id"] == info["id_archivo"] and archivo["porcentaje"] >= 20):
+                    if archivo["id"] == info["id_archivo"] and archivo["porcentaje"] >= 20:
                         peers.append({
-                            "id_nodo": nodo["id_nodo"],  # <--- ¡ESTA ES LA LÍNEA MÁGICA QUE FALTABA! 🌟
+                            "id_nodo": nodo["id_nodo"],
                             "ip": nodo["ip"],
                             "puerto": nodo["puerto"],
                             "nombre": archivo.get("nombre", "desconocido")
@@ -55,7 +54,7 @@ def manejar_nodo(conexion):
     elif tipo == "PUBLICAR_TORRENT":
         with lock_nodos:
             torrents_repo[info["nombre"]] = info["contenido"]
-    
+
     elif tipo == "LISTAR_TORRENTS":
         lista = list(torrents_repo.keys())
         respuesta = {
@@ -95,7 +94,8 @@ def mostrar_estado_tracker():
     for nodo_id, info in nodos.items():
         print(f"Nodo: {nodo_id} | {info['ip']}:{info['puerto']}")
         for archivo in info["archivos"]:
-            print(f"  Archivo: {archivo.get('nombre', 'DESCONOCIDO')} | {archivo['porcentaje']}%")
+            estado = "SEED" if archivo["porcentaje"] == 100 else "LEECH"
+            print(f"  Archivo: {archivo.get('nombre', 'DESCONOCIDO')} | {archivo['porcentaje']}% | {estado}")
     print("==========================\n")
 
 if __name__ == "__main__":

@@ -76,6 +76,7 @@ def seleccionar_torrent(config):
             with open(ruta, "r") as f:
                 return json.load(f)
         return None
+
 def registrar_en_tracker(config, torrent, estado):
     ip = obtener_ip_local_salida()
     info_nodo = {
@@ -89,7 +90,8 @@ def registrar_en_tracker(config, torrent, estado):
         }]
     }
     registrar_nodo(config["tracker_ip"], config["tracker_puerto"], info_nodo)
-    print(f"Status: {estado['porcentaje']}%")
+    rol = "SEEDER" if estado["porcentaje"] == 100 else "LEECHER"
+    print(f"[NODO] IP: {ip} | Rol: {rol} | Progreso: {estado['porcentaje']}%")
 
 def ciclo_principal(config, torrent):
   
@@ -147,6 +149,9 @@ if __name__ == "__main__":
         sys.exit(1)
 
     print(f"\n=== INICIANDO PEER: {config['id_nodo']} ===")
+    ip = obtener_ip_local_salida()
+    print(f"[NODO] Conectándose a la red desde IP: {ip} (puerto {config['puerto']})")
+
 
     hilo_servidor = threading.Thread(
         target=iniciar_servidor,
