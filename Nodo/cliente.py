@@ -13,6 +13,7 @@ from utilerias import (
     obtener_chunks_faltantes
 )
 
+# Puedes probar subir a 4 si la red es estable, pero 2 es muy seguro.
 MAX_DESCARGAS_CONCURRENTES = 2
 
 # --- Función Auxiliar para leer bytes exactos ---
@@ -30,7 +31,7 @@ def enviar_mensaje_tracker(ip, puerto, mensaje):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect((ip, puerto))
     s.send(json.dumps(mensaje).encode())
-    respuesta = s.recv(16384) # Aumentado buffer
+    respuesta = s.recv(16384) 
     s.close()
     return respuesta
 
@@ -39,6 +40,7 @@ def registrar_nodo(tracker_ip, tracker_puerto, info_nodo):
     try:
         enviar_mensaje_tracker(tracker_ip, tracker_puerto, mensaje)
     except Exception as e:
+        # Solo imprimimos si falla el registro inicial, es importante saberlo
         print(f"Error registrando en tracker: {e}")
 
 def consultar_peers(tracker_ip, tracker_puerto, id_archivo):
@@ -63,7 +65,7 @@ def actualizar_progreso(tracker_ip, tracker_puerto, id_nodo, id_archivo, porcent
     except:
         pass
 
-# ---------------- FUNCIONES NUEVAS (PUBLICAR / DESCARGAR) ----------------
+# ---------------- FUNCIONES DE GESTIÓN DE TORRENTS ----------------
 
 def publicar_torrent(tracker_ip, tracker_puerto, nombre_archivo, contenido_torrent):
     mensaje = {
@@ -94,67 +96,51 @@ def obtener_lista_torrents(tracker_ip, tracker_puerto):
         return []
 
 def descargar_torrent_tracker(tracker_ip, tracker_puerto, nombre_archivo):
-    print(f"--- DEBUG: Pidiendo {nombre_archivo} al Tracker {tracker_ip} ---")
+    print(f"Descargando metadatos de {nombre_archivo}...")
     mensaje = {
         "tipo": "DESCARGAR_TORRENT",
         "datos": {"nombre": nombre_archivo}
     }
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(10) # Damos buen tiempo
+        s.settimeout(10)
         s.connect((tracker_ip, tracker_puerto))
         s.send(json.dumps(mensaje).encode())
         
-        # --- CAMBIO IMPORTANTE: RECIBIR EN BUCLE ---
         datos_totales = b""
         while True:
             try:
                 paquete = s.recv(4096)
-                if not paquete: break # Si el servidor cierra, terminamos
+                if not paquete: break
                 datos_totales += paquete
             except socket.timeout:
                 break
-        
         s.close()
-        # -------------------------------------------
         
-        if not datos_totales:
-            print("--- DEBUG: Tracker cerró sin mandar datos ---")
-            return None
+        if not datos_totales: return None
 
-        print(f"--- DEBUG: Recibidos {len(datos_totales)} bytes ---")
-        
-        # Intentamos decodificar el JSON completo
         respuesta = json.loads(datos_totales.decode())
         
         if respuesta["tipo"] == "ARCHIVO_TORRENT":
             return respuesta["datos"]
         else:
-            print(f"--- DEBUG: Tracker error: {respuesta}")
+            print(f"Error del Tracker: {respuesta}")
             
-    except json.JSONDecodeError as e:
-        print(f" ERROR JSON INCOMPLETO: {e}")
-        print(f"   Datos recibidos (parcial): {datos_totales[:100]}...") # Muestra el inicio para ver si hay basura
     except Exception as e:
-        print(f" ERROR DE RED: {e}")
-        pass
+        print(f"Error al obtener .torrent: {e}")
     return None
-# ---------------- P2P CLIENTE ----------------
+
+# ---------------- P2P CLIENTE (SILENCIOSO) ----------------
 
 def solicitar_chunk(ip, puerto, nombre_archivo, indice, tamano_chunk, hash_esperado, estado):
     try:
-        # --- DEBUG: Ver qué intenta hacer el hilo ---
-        print(f"   --> Intentando conectar a {ip}:{puerto} (Chunk {indice})...")
+        # SILENCIADO: print(f"   --> Intentando conectar a {ip}:{puerto}...")
 
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        
-        # TIMEOUT: 5 segundos. Si no responde en este tiempo, suelta el error (no se congela)
-        s.settimeout(5) 
-        
+        s.settimeout(5) # Mantenemos el timeout de seguridad
         s.connect((ip, puerto))
         
-        # --- DEBUG: Confirmar conexión ---
-        print(f"   --> ¡Conectado a {ip}! Pidiendo datos...") 
+        # SILENCIADO: print(f"   --> ¡Conectado!...") 
 
         solicitud = {
             "tipo": "GET_CHUNK",
@@ -166,38 +152,33 @@ def solicitar_chunk(ip, puerto, nombre_archivo, indice, tamano_chunk, hash_esper
         }
         s.send(json.dumps(solicitud).encode())
 
-        # 1. Leer Header de tamaño fijo (10 bytes)
-        # Nota: Asegúrate de que recibir_exacto esté definida arriba en tu archivo
         header_len = recibir_exacto(s, 10)
         tamano_json = int(header_len.decode())
         
-        # 2. Leer JSON con los metadatos
         json_bytes = recibir_exacto(s, tamano_json)
         encabezado = json.loads(json_bytes.decode())
         
-        # 3. Leer el contenido del video (Chunk)
         tamano_video = encabezado["tamano_datos"]
         datos = recibir_exacto(s, tamano_video)
 
         s.close()
 
-        # Validar integridad
         if verificar_hash_chunk(datos, hash_esperado):
             ruta = f"../Archivos/parciales/{estado['nombre']}"
             escribir_chunk(ruta, indice, datos, tamano_chunk)
             
-            # Actualizar UI y marcar completado
             marcar_chunk_completado(estado, indice)
             mostrar_estado_nodo(estado)
         else:
-            print(f"⚠️ Hash incorrecto en chunk {indice} (Se reintentará).")
+            # Fallo de Hash silencioso (se reintentará automáticamente)
+            pass 
             
-    except socket.timeout:
-        print(f"⏰ TIMEOUT: El nodo {ip} tardó demasiado en responder el chunk {indice}.")
-    except ConnectionRefusedError:
-        print(f"⛔ RECHAZADO: El nodo {ip} rechazó la conexión (¿Puerto cerrado?).")
+    except (socket.timeout, ConnectionRefusedError, ConnectionResetError):
+        # Fallos de red silenciosos (comunes en P2P, se reintentan)
+        pass
     except Exception as e:
-        print(f"❌ ERROR en chunk {indice}: {e}")
+        # Solo imprimimos errores graves de sistema
+        print(f"\n❌ Error crítico en chunk {indice}: {e}")
 
 def gestionar_descarga(torrent, tracker_ip, tracker_puerto, id_nodo):
     estado = cargar_estado_descarga()
@@ -213,23 +194,14 @@ def gestionar_descarga(torrent, tracker_ip, tracker_puerto, id_nodo):
         if peers:
             peers_filtrados = []
             for p in peers:
-                # --- CHIVATO DE IDENTIDAD ---
+                # --- FILTRO LIMPIO Y FUNCIONAL ---
                 peer_id = p.get("id_nodo")
-                
-                # Normalizamos a mayúsculas y quitamos espacios por si acaso
                 id_remoto = str(peer_id).strip().upper() if peer_id else "NONE"
                 mi_id = str(id_nodo).strip().upper()
 
-                # Solo imprimimos si parece ser mi propia IP/Puerto para ver por qué no lo filtra
-                # (Asumiendo puertos estándar 6000-6005 para no llenar la pantalla)
-                if str(p.get("puerto")) in ["6000", "6001", "6002"]:
-                     print(f"🧐 COMPARANDO: Remoto='{id_remoto}' vs Mío='{mi_id}' | IP: {p['ip']}:{p['puerto']}")
-
+                # Solo agregamos si el ID es diferente
                 if id_remoto != mi_id:
                     peers_filtrados.append(p)
-                else:
-                    # Aquí entra si el filtro funciona bien
-                    pass 
             
             peers = peers_filtrados
 
@@ -266,10 +238,12 @@ def gestionar_descarga(torrent, tracker_ip, tracker_puerto, id_nodo):
     
         if not hilos:
             time.sleep(1)
+
 def mostrar_estado_nodo(estado):
-    print(f"\rProgreso: {estado['porcentaje']}% | Chunks: {len(estado['chunks_completados'])}/{estado['total_chunks']}", end="")
+    # Barra de progreso limpia que se sobrescribe a sí misma (\r)
+    print(f"\r Progreso: {estado['porcentaje']}% | Chunks: {len(estado['chunks_completados'])}/{estado['total_chunks']}", end="")
     if estado["porcentaje"] == 100:
-        print("\n DESCARGA COMPLETADA. Eres SEEDER.")
+        print("\n✨ ¡DESCARGA COMPLETADA! Eres un SEEDER. ✨")
 
 def obtener_ip_publica():
     try:
