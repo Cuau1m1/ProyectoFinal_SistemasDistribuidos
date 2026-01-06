@@ -198,30 +198,42 @@ def solicitar_chunk(ip, puerto, nombre_archivo, indice, tamano_chunk, hash_esper
         print(f"⛔ RECHAZADO: El nodo {ip} rechazó la conexión (¿Puerto cerrado?).")
     except Exception as e:
         print(f"❌ ERROR en chunk {indice}: {e}")
+
 def gestionar_descarga(torrent, tracker_ip, tracker_puerto, id_nodo):
     estado = cargar_estado_descarga()
     if not estado:
         estado = crear_estado_descarga(torrent)
 
     print(f"Iniciando descarga de: {torrent['nombre']} ({estado['porcentaje']}%)")
-    # print(f"🕵️ DEBUG: ...")  <-- ELIMINADO
 
     while estado["porcentaje"] < 100:
         chunks_faltantes = obtener_chunks_faltantes(estado)
         peers = consultar_peers(tracker_ip, tracker_puerto, torrent["id"])
 
         if peers:
-            # Filtro silencioso (Anti-Canibalismo)
             peers_filtrados = []
             for p in peers:
-                if p.get("id_nodo") != id_nodo:
+                # --- CHIVATO DE IDENTIDAD ---
+                peer_id = p.get("id_nodo")
+                
+                # Normalizamos a mayúsculas y quitamos espacios por si acaso
+                id_remoto = str(peer_id).strip().upper() if peer_id else "NONE"
+                mi_id = str(id_nodo).strip().upper()
+
+                # Solo imprimimos si parece ser mi propia IP/Puerto para ver por qué no lo filtra
+                # (Asumiendo puertos estándar 6000-6005 para no llenar la pantalla)
+                if str(p.get("puerto")) in ["6000", "6001", "6002"]:
+                     print(f"🧐 COMPARANDO: Remoto='{id_remoto}' vs Mío='{mi_id}' | IP: {p['ip']}:{p['puerto']}")
+
+                if id_remoto != mi_id:
                     peers_filtrados.append(p)
-                # else:
-                    # print(...) <-- ELIMINADO EL PRINT DE "ME ELIMINÉ"
+                else:
+                    # Aquí entra si el filtro funciona bien
+                    pass 
+            
             peers = peers_filtrados
 
         if not peers:
-            # Usamos end='\r' para que sobreescriba la línea y no llene la pantalla
             print("💤 Esperando peers disponibles...   ", end="\r")
             time.sleep(3)
             continue
@@ -232,7 +244,6 @@ def gestionar_descarga(torrent, tracker_ip, tracker_puerto, id_nodo):
 
             peer = peers[indice % len(peers)]
             
-            # Sin print de "Conectando a..."
             hilo = threading.Thread(
                 target=solicitar_chunk,
                 args=(
@@ -255,7 +266,6 @@ def gestionar_descarga(torrent, tracker_ip, tracker_puerto, id_nodo):
     
         if not hilos:
             time.sleep(1)
-
 def mostrar_estado_nodo(estado):
     print(f"\rProgreso: {estado['porcentaje']}% | Chunks: {len(estado['chunks_completados'])}/{estado['total_chunks']}", end="")
     if estado["porcentaje"] == 100:
