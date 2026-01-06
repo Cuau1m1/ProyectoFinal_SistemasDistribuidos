@@ -23,6 +23,7 @@ def manejar_nodo(conexion):
 
     if tipo == "REGISTRO":
         with lock_nodos:
+            # Guardamos toda la info del nodo (incluyendo su ID)
             nodos[info["id_nodo"]] = info
 
     elif tipo == "CONSULTA":
@@ -30,8 +31,10 @@ def manejar_nodo(conexion):
         with lock_nodos:
             for nodo in nodos.values():
                 for archivo in nodo["archivos"]:
+                    # Filtramos nodos que tengan al menos 20% del archivo
                     if (archivo["id"] == info["id_archivo"] and archivo["porcentaje"] >= 20):
                         peers.append({
+                            "id_nodo": nodo["id_nodo"],  # <--- ¡ESTA ES LA LÍNEA MÁGICA QUE FALTABA! 🌟
                             "ip": nodo["ip"],
                             "puerto": nodo["puerto"],
                             "nombre": archivo.get("nombre", "desconocido")
