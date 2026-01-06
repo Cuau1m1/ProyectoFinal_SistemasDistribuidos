@@ -21,11 +21,23 @@ def manejar_nodo(conexion):
     tipo = datos["tipo"]
     info = datos["datos"]
 
+    # ---------------- REGISTRO DE NODO ----------------
     if tipo == "REGISTRO":
         with lock_nodos:
             nodos[info["id_nodo"]] = info
+
+            # INDEXAR TORRENTS AUTOMÁTICAMENTE
+            for archivo in info["archivos"]:
+                nombre = archivo["nombre"]
+                if nombre not in torrents_repo:
+                    torrents_repo[nombre] = {
+                        "id": archivo["id"],
+                        "nombre": nombre
+                    }
+
         print(f"[TRACKER] Nodo conectado: {info['id_nodo']} | {info['ip']}:{info['puerto']}")
 
+    # ---------------- CONSULTA DE PEERS ----------------
     elif tipo == "CONSULTA":
         peers = []
         with lock_nodos:
@@ -38,12 +50,14 @@ def manejar_nodo(conexion):
                             "puerto": nodo["puerto"],
                             "nombre": archivo.get("nombre", "desconocido")
                         })
+
         respuesta = {
             "tipo": "RESPUESTA",
             "datos": {"peers": peers}
         }
         conexion.send(json.dumps(respuesta).encode())
 
+    # ---------------- ACTUALIZACIÓN DE PROGRESO ----------------
     elif tipo == "ACTUALIZAR":
         with lock_nodos:
             if info["id_nodo"] in nodos:
@@ -51,27 +65,37 @@ def manejar_nodo(conexion):
                     if archivo["id"] == info["id_archivo"]:
                         archivo["porcentaje"] = info["porcentaje"]
 
+    # ---------------- PUBLICAR TORRENT (OPCIONAL) ----------------
     elif tipo == "PUBLICAR_TORRENT":
         with lock_nodos:
             torrents_repo[info["nombre"]] = info["contenido"]
 
+    # ---------------- LISTAR TORRENTS ----------------
     elif tipo == "LISTAR_TORRENTS":
-        lista = list(torrents_repo.keys())
+        with lock_nodos:
+            lista = list(torrents_repo.keys())
+
         respuesta = {
             "tipo": "RESPUESTA_LISTA",
             "datos": lista
         }
         conexion.send(json.dumps(respuesta).encode())
 
+    # ---------------- DESCARGAR TORRENT ----------------
     elif tipo == "DESCARGAR_TORRENT":
         nombre = info["nombre"]
-        if nombre in torrents_repo:
-            respuesta = {
-                "tipo": "ARCHIVO_TORRENT",
-                "datos": torrents_repo[nombre]
-            }
-        else:
-            respuesta = {"tipo": "ERROR", "datos": {}}
+        with lock_nodos:
+            if nombre in torrents_repo:
+                respuesta = {
+                    "tipo": "ARCHIVO_TORRENT",
+                    "datos": torrents_repo[nombre]
+                }
+            else:
+                respuesta = {
+                    "tipo": "ERROR",
+                    "datos": {}
+                }
+
         conexion.send(json.dumps(respuesta).encode())
 
     conexion.close()
