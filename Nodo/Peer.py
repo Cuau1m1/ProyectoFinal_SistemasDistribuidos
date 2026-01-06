@@ -7,7 +7,7 @@ import socket
 
 from servidor import iniciar_servidor
 from cliente import registrar_nodo, gestionar_descarga, publicar_torrent, obtener_lista_torrents, descargar_torrent_tracker
-from utilerias import cargar_estado_descarga, crear_estado_descarga
+from utilerias import cargar_estado_descarga, crear_estado_descarga, obtener_ruta_estado
 
 def obtener_ip_local_salida():
     try:
@@ -94,52 +94,22 @@ def registrar_en_tracker(config, torrent, estado):
     print(f"[NODO] IP: {ip} | Rol: {rol} | Progreso: {estado['porcentaje']}%")
 
 def ciclo_principal(config, torrent):
-  
+
     ruta_completo = f"../Archivos/completos/{torrent['nombre']}"
-    
+    ruta_estado = obtener_ruta_estado(torrent["id"])
+
     if os.path.exists(ruta_completo):
         print(f" Archivo físico detectado: {torrent['nombre']}")
-        estado = crear_estado_descarga(torrent)
-        estado["porcentaje"] = 100
+        estado = crear_estado_seeder(torrent)
         print("Estado forzado a 100% (Modo Seeder Automático).")
     else:
-      
-        estado = cargar_estado_descarga()
-        
-        if not estado or estado.get("id") != torrent["id"]:
+        estado = cargar_estado_descarga(torrent["id"])
+
+        if not estado:
             estado = crear_estado_descarga(torrent)
             print("Iniciando nueva descarga (0%)...")
         else:
             print(f"Recuperando progreso previo: {estado['porcentaje']}%")
-
-
-    if estado["porcentaje"] == 100:
-        ruta_t = f"../Archivos/torrents/{torrent['nombre']}.torrent.json"
-        if os.path.exists(ruta_t):
-            try:
-                with open(ruta_t, "r") as f:
-                    contenido = json.load(f)
-                print(f"Publicando {torrent['nombre']} en Tracker...")
-                publicar_torrent(config["tracker_ip"], config["tracker_puerto"], torrent["nombre"], contenido)
-            except:
-                pass
-
-    # 3. Registro y Flujo Normal
-    registrar_en_tracker(config, torrent, estado)
-
-    if estado["porcentaje"] < 100:
-        gestionar_descarga(torrent, config["tracker_ip"], config["tracker_puerto"], config["id_nodo"])
-        print("Descarga finalizada.")
-        
-        # Actualizamos estado final al terminar
-        estado["porcentaje"] = 100
-        registrar_en_tracker(config, torrent, estado)
-    
-    while True:
-        try:
-            time.sleep(10)
-        except KeyboardInterrupt:
-            sys.exit(0)
 
 if __name__ == "__main__":
     config = cargar_config()

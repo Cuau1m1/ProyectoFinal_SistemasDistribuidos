@@ -86,8 +86,8 @@ def verificar_hash_chunk(datos, hash_esperado):
 
 #Estado
 
-RUTA_ESTADO = "estado_descarga.json"
-
+def obtener_ruta_estado(torrent_id):
+    return f"estado_{torrent_id}.json"
 
 def crear_estado_descarga(torrent):
     estado = {
@@ -99,24 +99,28 @@ def crear_estado_descarga(torrent):
         "chunks_completados": [],
         "porcentaje": 0
     }
-    guardar_estado_descarga(estado)
+    ruta = obtener_ruta_estado(torrent["id"])
+    guardar_estado_descarga(estado, ruta)
     return estado
 
-def cargar_estado_descarga():
-    if not os.path.exists(RUTA_ESTADO):
+
+def cargar_estado_descarga(torrent_id):
+    ruta = obtener_ruta_estado(torrent_id)
+    if not os.path.exists(ruta):
         return None
-    with open(RUTA_ESTADO, "r") as archivo:
+    with open(ruta, "r") as archivo:
         return json.load(archivo)
 
-def guardar_estado_descarga(estado):
-    with open(RUTA_ESTADO, "w") as archivo:
-        json.dump(estado, archivo, indent=4)
 
+def guardar_estado_descarga(estado, ruta):
+    with open(ruta, "w") as archivo:
+        json.dump(estado, archivo, indent=4)
 def marcar_chunk_completado(estado, indice_chunk):
     if indice_chunk not in estado["chunks_completados"]:
         estado["chunks_completados"].append(indice_chunk)
         estado["porcentaje"] = calcular_porcentaje(estado)
-        guardar_estado_descarga(estado)
+        ruta = obtener_ruta_estado(estado["id"])
+        guardar_estado_descarga(estado, ruta)
 
 def obtener_chunks_faltantes(estado):
     return [
@@ -139,5 +143,6 @@ def crear_estado_seeder(torrent):
         "chunks_completados": list(range(torrent["total_chunks"])),
         "porcentaje": 100
     }
-    guardar_estado_descarga(estado)
+    ruta = obtener_ruta_estado(torrent["id"])
+    guardar_estado_descarga(estado, ruta)
     return estado
