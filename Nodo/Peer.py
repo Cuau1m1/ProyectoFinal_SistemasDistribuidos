@@ -106,7 +106,7 @@ def ciclo_principal(config, torrent):
 
     if os.path.exists(ruta_completo):
         print(f" Archivo físico detectado: {torrent['nombre']}")
-        registrar_en_tracker(config, torrent, estado)
+        estado = crear_estado_seeder(torrent)
         print("Estado forzado a 100% (Modo Seeder Automático).")
     else:
         estado = cargar_estado_descarga(torrent["id"])
@@ -116,6 +116,8 @@ def ciclo_principal(config, torrent):
             print("Iniciando nueva descarga (0%)...")
         else:
             print(f"Recuperando progreso previo: {estado['porcentaje']}%")
+
+    registrar_en_tracker(config, torrent, estado)
 
 if __name__ == "__main__":
     config = cargar_config()
