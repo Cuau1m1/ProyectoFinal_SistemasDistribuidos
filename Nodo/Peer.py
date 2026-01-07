@@ -215,7 +215,6 @@ def publicar_todos_los_torrents(config):
             print(f"[SEEDER] Error publicando {nombre}: {e}")
 
 
-
 if __name__ == "__main__":
     config = cargar_config()
 
@@ -243,3 +242,20 @@ if __name__ == "__main__":
                 ruta = os.path.join(ruta_torrents, archivo)
                 with open(ruta, "r") as f:
                     torrent = json.load(f)
+
+                estado = crear_estado_seeder(torrent)
+                registrar_en_tracker(config, torrent, estado)
+
+        print("[SEEDER] Listo y anunciando archivos.")
+        while True:
+            time.sleep(10)
+
+    # ================= LEECHER =================
+    print("[DEBUG] Entrando a modo LEECHER")   # 👈 AÑADE ESTA LÍNEA
+
+    torrent = seleccionar_torrent(config)
+    if not torrent:
+        print("No se seleccionó ningún torrent. Saliendo.")
+        sys.exit(1)
+
+    ciclo_principal(config, torrent)
