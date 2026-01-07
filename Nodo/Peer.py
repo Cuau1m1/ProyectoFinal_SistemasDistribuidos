@@ -128,7 +128,7 @@ def ciclo_principal(config, torrent):
             config["tracker_puerto"],
             config["id_nodo"]
         )
-        print("Descarga finalizada.")
+        estado = cargar_estado_descarga(torrent["id"])
         registrar_en_tracker(config, torrent, estado)
 
     # --- MANTENER PEER VIVO ---
@@ -137,6 +137,8 @@ def ciclo_principal(config, torrent):
             time.sleep(10)
         except KeyboardInterrupt:
             sys.exit(0)
+
+
 def publicar_torrents_seeder(config):
     ruta_torrents = "../Archivos/torrents"
     if not os.path.exists(ruta_torrents):

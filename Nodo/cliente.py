@@ -251,10 +251,15 @@ def gestionar_descarga(torrent, tracker_ip, tracker_puerto, id_nodo):
         print("\n✨ ¡DESCARGA COMPLETADA! Eres un SEEDER. ✨")
 
 def mostrar_estado_nodo(estado):
-    # Barra de progreso limpia que se sobrescribe a sí misma (\r)
-    print(f"\r Progreso: {estado['porcentaje']}% | Chunks: {len(estado['chunks_completados'])}/{estado['total_chunks']}", end="")
-    if estado["porcentaje"] == 100:
-        print("\n✨ ¡DESCARGA COMPLETADA! Eres un SEEDER. ✨")
+    completados = sum(1 for c in estado["chunks_completados"] if c)
+    total = estado["total_chunks"]
+
+    print(
+        f"\r Progreso: {estado['porcentaje']}% | "
+        f"Chunks: {completados}/{total}",
+        end=""
+    )
+
 
 def obtener_ip_publica():
     try:
