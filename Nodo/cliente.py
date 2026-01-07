@@ -182,10 +182,65 @@ def solicitar_chunk(ip, puerto, nombre_archivo, indice, tamano_chunk, hash_esper
         # Solo imprimimos errores graves de sistema
         print(f"\n Error crítico en chunk {indice}: {e}")
 
+
+
 def gestionar_descarga(torrent, tracker_ip, tracker_puerto, id_nodo):
     estado = cargar_estado_descarga(torrent["id"])
     if not estado:
         estado = crear_estado_descarga(torrent)
+
+    print(f"[DESCARGA] {torrent['nombre']} | Inicio en {estado['porcentaje']}%")
+
+    while estado["porcentaje"] < 100:
+
+        chunks_faltantes = obtener_chunks_faltantes(estado)
+        if not chunks_faltantes:
+            break
+
+        peers = consultar_peers(tracker_ip, tracker_puerto, torrent["id"])
+
+        peers = [
+            p for p in peers
+            if str(p.get("id_nodo")).strip() != str(id_nodo).strip()
+        ]
+
+        if not peers:
+            print("[CLIENTE] Esperando peers...")
+            time.sleep(2)
+            continue
+
+        hilos = []
+
+        for i, indice in enumerate(chunks_faltantes[:MAX_DESCARGAS_CONCURRENTES]):
+            peer = peers[i % len(peers)]
+
+            hilo = threading.Thread(
+                target=solicitar_chunk,
+                args=(
+                    peer["ip"],
+                    peer["puerto"],
+                    torrent["nombre"],
+                    indice,
+                    torrent["tamano_chunk"],
+                    torrent["hash_chunks"][indice],
+                    estado
+                )
+            )
+            hilo.start()
+            hilos.append(hilo)
+
+        for h in hilos:
+            h.join()
+
+        actualizar_progreso(
+            tracker_ip,
+            tracker_puerto,
+            id_nodo,
+            torrent["id"],
+            estado["porcentaje"]
+        )
+
+        time.sleep(1.5)
 
 def mostrar_estado_nodo(estado):
     # Barra de progreso limpia que se sobrescribe a sí misma (\r)
