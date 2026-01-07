@@ -102,20 +102,32 @@ def registrar_en_tracker(config, torrent, estado):
 def ciclo_principal(config, torrent):
 
     ruta_completo = f"../Archivos/completos/{torrent['nombre']}"
+    ruta_parcial = f"../Archivos/parciales/{torrent['nombre']}"
 
     # --- DETERMINAR ESTADO ---
     if os.path.exists(ruta_completo):
-        print(f" Archivo físico detectado: {torrent['nombre']}")
+        # Tiene archivo físico completo → SEEDER
+        print(f"Archivo físico detectado: {torrent['nombre']}")
         estado = crear_estado_seeder(torrent)
         print("Estado forzado a 100% (Modo Seeder Automático).")
+
     else:
+        # No tiene archivo completo → LEECHER
         estado = cargar_estado_descarga(torrent["id"])
+
+        # 🔥 Estado inconsistente: 100% sin archivo físico
+        if estado and estado["porcentaje"] == 100:
+            print("Estado inconsistente detectado (100% sin archivo físico). Reiniciando descarga.")
+            estado = None
 
         if not estado:
             estado = crear_estado_descarga(torrent)
             print("Iniciando nueva descarga (0%)...")
         else:
             print(f"Recuperando progreso previo: {estado['porcentaje']}%")
+
+    # 🔧 Asegurar estado más reciente antes de registrar
+    estado = cargar_estado_descarga(torrent["id"]) or estado
 
     # --- REGISTRO EN TRACKER ---
     registrar_en_tracker(config, torrent, estado)
@@ -128,6 +140,7 @@ def ciclo_principal(config, torrent):
             config["tracker_puerto"],
             config["id_nodo"]
         )
+
         estado = cargar_estado_descarga(torrent["id"])
         registrar_en_tracker(config, torrent, estado)
 
