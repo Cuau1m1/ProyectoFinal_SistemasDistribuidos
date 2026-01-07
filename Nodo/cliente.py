@@ -185,6 +185,8 @@ def solicitar_chunk(ip, puerto, nombre_archivo, indice, tamano_chunk, hash_esper
 
 
 def gestionar_descarga(torrent, tracker_ip, tracker_puerto, id_nodo):
+    print(f"[DEBUG] Faltan {len(obtener_chunks_faltantes(estado))} chunks")
+
     estado = cargar_estado_descarga(torrent["id"])
     if not estado:
         estado = crear_estado_descarga(torrent)
