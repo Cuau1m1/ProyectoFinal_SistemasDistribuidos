@@ -230,31 +230,16 @@ if __name__ == "__main__":
     )
     hilo_servidor.start()
 
-    # --- SEEDER ---
-    # --- SEEDER ---
-if config["id_nodo"].startswith("SEEDER"):
-    publicar_todos_los_torrents(config)
+    # ================= SEEDER =================
+    if config["id_nodo"].startswith("SEEDER"):
+        publicar_todos_los_torrents(config)
 
-    ruta_torrents = "../Archivos/torrents"
-    if os.path.exists(ruta_torrents):
-        for archivo in os.listdir(ruta_torrents):
-            if not archivo.endswith(".torrent.json"):
-                continue
+        ruta_torrents = "../Archivos/torrents"
+        if os.path.exists(ruta_torrents):
+            for archivo in os.listdir(ruta_torrents):
+                if not archivo.endswith(".torrent.json"):
+                    continue
 
-            ruta = os.path.join(ruta_torrents, archivo)
-            with open(ruta, "r") as f:
-                torrent = json.load(f)
-
-            estado = crear_estado_seeder(torrent)
-            registrar_en_tracker(config, torrent, estado)
-
-    while True:
-        time.sleep(10)
-
-
-    # --- LEECHER ---
-    torrent = seleccionar_torrent(config)
-    if not torrent:
-        sys.exit(1)
-
-    ciclo_principal(config, torrent)
+                ruta = os.path.join(ruta_torrents, archivo)
+                with open(ruta, "r") as f:
+                    torrent = json.load(f)
