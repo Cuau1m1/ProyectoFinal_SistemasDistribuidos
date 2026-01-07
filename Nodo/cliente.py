@@ -255,10 +255,12 @@ def mostrar_estado_nodo(estado):
     total = estado["total_chunks"]
 
     print(
-        f"\r Progreso: {estado['porcentaje']}% | "
-        f"Chunks: {completados}/{total}",
-        end=""
+       f"\r Progreso: {estado['porcentaje']}% | "
+       f"Chunks: {completados}/{total}",
+       end="",
+       flush=True
     )
+
 
 
 def obtener_ip_publica():
