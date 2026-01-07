@@ -185,8 +185,6 @@ def solicitar_chunk(ip, puerto, nombre_archivo, indice, tamano_chunk, hash_esper
 
 
 def gestionar_descarga(torrent, tracker_ip, tracker_puerto, id_nodo):
-    print(f"[DEBUG] Faltan {len(obtener_chunks_faltantes(estado))} chunks")
-
     estado = cargar_estado_descarga(torrent["id"])
     if not estado:
         estado = crear_estado_descarga(torrent)
@@ -196,6 +194,8 @@ def gestionar_descarga(torrent, tracker_ip, tracker_puerto, id_nodo):
     while estado["porcentaje"] < 100:
 
         chunks_faltantes = obtener_chunks_faltantes(estado)
+        print(f"[DEBUG] Faltan {len(chunks_faltantes)} chunks")
+
         if not chunks_faltantes:
             break
 
@@ -213,7 +213,10 @@ def gestionar_descarga(torrent, tracker_ip, tracker_puerto, id_nodo):
 
         hilos = []
 
-        for i, indice in enumerate(chunks_faltantes[:MAX_DESCARGAS_CONCURRENTES]):
+        # DESCARGA PARALELA REAL
+        for i, indice in enumerate(
+            chunks_faltantes[:MAX_DESCARGAS_CONCURRENTES * len(peers)]
+        ):
             peer = peers[i % len(peers)]
 
             hilo = threading.Thread(
@@ -242,7 +245,10 @@ def gestionar_descarga(torrent, tracker_ip, tracker_puerto, id_nodo):
             estado["porcentaje"]
         )
 
-        time.sleep(1.5)
+        time.sleep(1.2)
+
+    if estado["porcentaje"] == 100:
+        print("\n✨ ¡DESCARGA COMPLETADA! Eres un SEEDER. ✨")
 
 def mostrar_estado_nodo(estado):
     # Barra de progreso limpia que se sobrescribe a sí misma (\r)
