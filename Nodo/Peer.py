@@ -14,16 +14,22 @@ from utilerias import (
     obtener_ruta_estado
 )
 
+def registrar_en_tracker(config, torrent, estado):
+    ip = config.get("ip_publica")  # 🔥 IP REAL ALCANZABLE
+    info_nodo = {
+        "id_nodo": config["id_nodo"],
+        "ip": ip,
+        "puerto": config["puerto"],
+        "archivos": [{
+            "id": torrent["id"],
+            "nombre": torrent["nombre"],
+            "porcentaje": estado["porcentaje"]
+        }]
+    }
+    registrar_nodo(config["tracker_ip"], config["tracker_puerto"], info_nodo)
 
-def obtener_ip_local_salida():
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        ip = s.getsockname()[0]
-        s.close()
-        return ip
-    except:
-        return "127.0.0.1"
+    rol = "SEEDER" if estado["porcentaje"] == 100 else "LEECHER"
+    print(f"[NODO] IP: {ip} | Rol: {rol} | Progreso: {estado['porcentaje']}%")
 
 def cargar_config():
     if not os.path.exists("config_nodo.json"):
@@ -84,7 +90,11 @@ def seleccionar_torrent(config):
         return None
 
 def registrar_en_tracker(config, torrent, estado):
-    ip = obtener_ip_local_salida()
+    ip = config.get("ip_publica")
+    if not ip:
+        print("[ERROR] ip_publica no definida en config_nodo.json")
+        return
+
     info_nodo = {
         "id_nodo": config["id_nodo"],
         "ip": ip,
@@ -95,7 +105,9 @@ def registrar_en_tracker(config, torrent, estado):
             "porcentaje": estado["porcentaje"]
         }]
     }
+
     registrar_nodo(config["tracker_ip"], config["tracker_puerto"], info_nodo)
+
     rol = "SEEDER" if estado["porcentaje"] == 100 else "LEECHER"
     print(f"[NODO] IP: {ip} | Rol: {rol} | Progreso: {estado['porcentaje']}%")
 
@@ -140,6 +152,7 @@ def ciclo_principal(config, torrent):
             config["tracker_puerto"],
             config["id_nodo"]
         )
+
 
         estado = cargar_estado_descarga(torrent["id"])
         registrar_en_tracker(config, torrent, estado)
