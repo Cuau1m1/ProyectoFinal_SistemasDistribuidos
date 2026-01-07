@@ -164,11 +164,13 @@ def solicitar_chunk(ip, puerto, nombre_archivo, indice, tamano_chunk, hash_esper
         s.close()
 
         if verificar_hash_chunk(datos, hash_esperado):
-            ruta = f"../Archivos/parciales/{estado['nombre']}"
-            escribir_chunk(ruta, indice, datos, tamano_chunk)
-            
-            marcar_chunk_completado(estado, indice)
-            mostrar_estado_nodo(estado)
+             ruta = f"../Archivos/parciales/{estado['nombre']}"
+             escribir_chunk(ruta, indice, datos, tamano_chunk)
+
+             marcar_chunk_completado(estado, indice)
+             mostrar_estado_nodo(estado)
+             time.sleep(0.8)
+ 
         else:
             # Fallo de Hash silencioso (se reintentará automáticamente)
             pass 
