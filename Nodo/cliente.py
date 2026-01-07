@@ -181,57 +181,9 @@ def solicitar_chunk(ip, puerto, nombre_archivo, indice, tamano_chunk, hash_esper
         print(f"\n Error crítico en chunk {indice}: {e}")
 
 def gestionar_descarga(torrent, tracker_ip, tracker_puerto, id_nodo):
-    estado = cargar_estado_descarga()
+    estado = cargar_estado_descarga(torrent["id"])
     if not estado:
         estado = crear_estado_descarga(torrent)
-
-    print(f"[DESCARGA] Iniciando: {torrent['nombre']} ({estado['porcentaje']}%)")
-
-    while estado["porcentaje"] < 100:
-        chunks_faltantes = obtener_chunks_faltantes(estado)
-        peers = consultar_peers(tracker_ip, tracker_puerto, torrent["id"])
-
-        if len(peers) > 1:
-            print("[SIMULTANEO] Descarga desde multiples nodos")
-
-        peers_filtrados = []
-        for p in peers:
-            if str(p.get("id_nodo")).strip().upper() != str(id_nodo).strip().upper():
-                peers_filtrados.append(p)
-        peers = peers_filtrados
-
-        if not peers:
-            print("[ESPERA] No hay peers disponibles", end="\r")
-            time.sleep(3)
-            continue
-
-        hilos = []
-        for i, indice in enumerate(chunks_faltantes):
-            if i >= MAX_DESCARGAS_CONCURRENTES:
-                break
-
-            peer = peers[indice % len(peers)]
-            print(f"[P2P] Chunk {indice} desde {peer['ip']}:{peer['puerto']}")
-
-            hilo = threading.Thread(
-                target=solicitar_chunk,
-                args=(
-                    peer["ip"],
-                    peer["puerto"],
-                    torrent["nombre"],
-                    indice,
-                    torrent["tamano_chunk"],
-                    torrent["hash_chunks"][indice],
-                    estado
-                )
-            )
-            hilo.start()
-            hilos.append(hilo)
-
-        for h in hilos:
-            h.join()
-
-        actualizar_progreso(tracker_ip, tracker_puerto, id_nodo, torrent["id"], estado["porcentaje"])
 
 def mostrar_estado_nodo(estado):
     # Barra de progreso limpia que se sobrescribe a sí misma (\r)
