@@ -93,17 +93,21 @@ def obtener_ruta_estado(id_torrent):
 
 def crear_estado_descarga(torrent):
     ruta = obtener_ruta_estado(torrent["id"])
+
     estado = {
         "id": torrent["id"],
         "nombre": torrent["nombre"],
         "tamano_total": torrent["tamano_total"],
         "tamano_chunk": torrent["tamano_chunk"],
         "total_chunks": torrent["total_chunks"],
-        "chunks_completados": [],
+        # Lista booleana correcta
+        "chunks_completados": [False] * torrent["total_chunks"],
         "porcentaje": 0
     }
+
     with open(ruta, "w") as archivo:
         json.dump(estado, archivo, indent=4)
+
     return estado
 
 def cargar_estado_descarga(id_torrent):
@@ -119,21 +123,25 @@ def guardar_estado_descarga(estado):
     with open(ruta, "w") as archivo:
         json.dump(estado, archivo, indent=4)
 
-def marcar_chunk_completado(estado, indice_chunk):
-    if indice_chunk not in estado["chunks_completados"]:
-        estado["chunks_completados"].append(indice_chunk)
-        estado["porcentaje"] = calcular_porcentaje(estado)
-        ruta = obtener_ruta_estado(estado["id"])
-        guardar_estado_descarga(estado, ruta)
+def marcar_chunk_completado(estado, indice):
+    if not estado["chunks_completados"][indice]:
+        estado["chunks_completados"][indice] = True
+
+        completados = sum(1 for c in estado["chunks_completados"] if c)
+        total = estado["total_chunks"]
+
+        estado["porcentaje"] = int((completados / total) * 100)
+
+        guardar_estado_descarga(estado)
 
 def obtener_chunks_faltantes(estado):
     return [
-        i for i in range(estado["total_chunks"])
-        if i not in estado["chunks_completados"]
+        i for i, completo in enumerate(estado["chunks_completados"])
+        if not completo
     ]
 
 def calcular_porcentaje(estado):
-    completados = len(estado["chunks_completados"])
+    completados = sum(1 for c in estado["chunks_completados"] if c)
     total = estado["total_chunks"]
     return int((completados / total) * 100)
 

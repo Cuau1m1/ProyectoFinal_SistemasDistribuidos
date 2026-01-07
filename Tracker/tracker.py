@@ -122,5 +122,22 @@ def mostrar_estado_tracker():
             print(f"  Archivo: {archivo.get('nombre', 'DESCONOCIDO')} | {archivo['porcentaje']}% | {estado}")
     print("==========================\n")
 
+def registrar_seeder(datos, addr):
+    archivo = datos["archivo"]
+    ip = datos["ip"]
+    puerto = datos["puerto"]
+
+    if archivo not in torrents:
+        return
+
+    torrents[archivo]["seeders"].add((ip, puerto))
+
+def obtener_peers(nombre_archivo):
+    if nombre_archivo not in torrents:
+        return []
+
+    return list(torrents[nombre_archivo]["seeders"])
+
+
 if __name__ == "__main__":
     iniciar_tracker(5000)

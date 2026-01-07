@@ -129,7 +129,6 @@ def ciclo_principal(config, torrent):
             config["id_nodo"]
         )
         print("Descarga finalizada.")
-        estado["porcentaje"] = 100
         registrar_en_tracker(config, torrent, estado)
 
     # --- MANTENER PEER VIVO ---
@@ -158,6 +157,26 @@ def publicar_torrents_seeder(config):
             torrent
         )
         print(f"[SEEDER] Torrent publicado en tracker: {torrent['nombre']}")
+
+def anunciar_seeder_al_tracker(nombre_archivo, tracker_ip, tracker_puerto, mi_ip, mi_puerto):
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((tracker_ip, tracker_puerto))
+
+        mensaje = {
+            "tipo": "REGISTRAR_SEEDER",
+            "datos": {
+                "archivo": nombre_archivo,
+                "ip": mi_ip,
+                "puerto": mi_puerto
+            }
+        }
+
+        s.send(json.dumps(mensaje).encode())
+        s.close()
+
+    except Exception as e:
+        print(f"[SEEDER] Error anunciando seeder: {e}")
 
 
 def publicar_todos_los_torrents(config):
@@ -212,10 +231,26 @@ if __name__ == "__main__":
     hilo_servidor.start()
 
     # --- SEEDER ---
-    if config["id_nodo"].startswith("SEEDER"):
-        publicar_todos_los_torrents(config)
-        while True:
-            time.sleep(10)
+    # --- SEEDER ---
+if config["id_nodo"].startswith("SEEDER"):
+    publicar_todos_los_torrents(config)
+
+    ruta_torrents = "../Archivos/torrents"
+    if os.path.exists(ruta_torrents):
+        for archivo in os.listdir(ruta_torrents):
+            if not archivo.endswith(".torrent.json"):
+                continue
+
+            ruta = os.path.join(ruta_torrents, archivo)
+            with open(ruta, "r") as f:
+                torrent = json.load(f)
+
+            estado = crear_estado_seeder(torrent)
+            registrar_en_tracker(config, torrent, estado)
+
+    while True:
+        time.sleep(10)
+
 
     # --- LEECHER ---
     torrent = seleccionar_torrent(config)
